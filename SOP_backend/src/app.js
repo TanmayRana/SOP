@@ -5,12 +5,26 @@ import authRoutes from './routes/auth.routes.js';
 import errorHandler from './middleware/error.middleware.js';
 import connectDB from './config/database.js';
 import morgan from 'morgan';
+import cors from 'cors';
 
 dotenv.config();
 
 connectDB();
 
 const app = express();
+
+app.use(
+  cors({
+    origin: [
+      'http://localhost:5173',
+      'http://localhost:3000',
+      'http://localhost:8080',
+    ],
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'Cookie', 'Set-Cookie'],
+  })
+);
 
 app.use(
   morgan('dev', {
