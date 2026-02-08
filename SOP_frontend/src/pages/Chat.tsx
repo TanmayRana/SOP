@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import {
   Upload,
   Settings2,
@@ -11,10 +11,12 @@ import {
   LayoutDashboard,
   FolderOpen,
   MessageSquare,
+  History,
 } from "lucide-react";
 import ChatMessage, { Message, Citation } from "@/components/chat/ChatMessage";
 import SourcesPanel from "@/components/chat/SourcesPanel";
 import StudioPanel from "@/components/chat/StudioPanel";
+import ChatHistory from "@/components/chat/ChatHistory";
 import PDFPreviewModal from "@/components/chat/PDFPreviewModal";
 import { Button } from "@/components/ui/button";
 
@@ -28,6 +30,18 @@ import {
 } from "@/components/ui/dialog";
 import UploadZone from "@/components/admin/UploadZone";
 import { useToast } from "@/hooks/use-toast";
+import { useAppDispatch, useAppSelector } from "@/hooks";
+import {
+  sendMessage,
+  uploadPdfs,
+  setChatId,
+  addMessage,
+  fetchChatPdfs,
+  fetchChats,
+  createNewChat,
+  deleteChatThunk
+} from "@/store/slices/chat.slice";
+import axios from "axios";
 
 // Demo data
 const demoResponses: Record<
@@ -74,32 +88,55 @@ const demoResponses: Record<
 const Chat = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
+  const dispatch = useAppDispatch();
+  const { chatId } = useParams();
+  const { messages, sources, chats, isLoading, isUploading, activeChatId } = useAppSelector((state) => state.chat);
 
-  const [messages, setMessages] = useState<Message[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
   const [input, setInput] = useState("");
   const [selectedCitation, setSelectedCitation] = useState<Citation | null>(
     null,
   );
   const [showSourcesPanel, setShowSourcesPanel] = useState(true);
+  const [showHistoryPanel, setShowHistoryPanel] = useState(false);
   const [showStudioPanel, setShowStudioPanel] = useState(true);
   const [showMobileMenu, setShowMobileMenu] = useState<
-    "sources" | "studio" | null
+    "sources" | "studio" | "history" | null
   >(null);
 
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
-  // Demo sources
-  const [sources, setSources] = useState<
-    {
-      id: string;
-      name: string;
-      type: "pdf" | "website" | "text";
-      status: "ready" | "processing";
-    }[]
-  >([]);
+  // Initial load
+  useEffect(() => {
+    dispatch(fetchChats());
+  }, [dispatch]);
+
+  // Handle chatId from URL or generate new one
+  useEffect(() => {
+    const initializeChat = async () => {
+      if (chatId) {
+        if (chatId !== activeChatId) {
+          dispatch(setChatId(chatId));
+          dispatch(fetchChatPdfs(chatId));
+          // If chat doesn't exist in our list, try to create/fetch it
+          if (!chats.find(c => c.id === chatId)) {
+            try {
+              await dispatch(createNewChat({ chatId, title: "New Chat" })).unwrap();
+            } catch (e) {
+              // Chat might already exist but not in current fetch list, or it's just being created
+              console.log("Chat existence handled by backend or failed creation", e);
+            }
+          }
+        }
+      } else {
+        const newId = crypto.randomUUID();
+        navigate(`/chat/${newId}`, { replace: true });
+      }
+    };
+
+    initializeChat();
+  }, [chatId, activeChatId, dispatch, navigate, chats]);
 
   // Get all citations from messages
   const allCitations = messages
@@ -115,75 +152,28 @@ const Chat = () => {
   }, [messages]);
 
   const handleSendMessage = async () => {
-    if (!input.trim() || isLoading) return;
+    if (!input.trim() || isLoading || !activeChatId) return;
 
     const content = input.trim();
     setInput("");
 
-    // Add user message
-    const userMessage: Message = {
+    // Add user message to state
+    dispatch(addMessage({
       id: Date.now().toString(),
       role: "user",
       content,
       timestamp: new Date(),
-    };
-    setMessages((prev) => [...prev, userMessage]);
-    setIsLoading(true);
+    }));
 
-    // Simulate AI response
-    await new Promise((resolve) => setTimeout(resolve, 1500));
-
-    // Enhanced keyword matching with more patterns
-    const getResponse = (content: string) => {
-      const lowerContent = content.toLowerCase();
-
-      if (
-        lowerContent.includes("refund") ||
-        lowerContent.includes("return") ||
-        lowerContent.includes("money back")
-      ) {
-        return demoResponses.refund;
-      } else if (
-        lowerContent.includes("password") ||
-        lowerContent.includes("login") ||
-        lowerContent.includes("access") ||
-        lowerContent.includes("account")
-      ) {
-        return demoResponses.password;
-      } else if (
-        lowerContent.includes("safety") ||
-        lowerContent.includes("emergency") ||
-        lowerContent.includes("incident")
-      ) {
-        return {
-          content:
-            "For safety procedures and emergency protocols:\n\n1. Immediately assess the situation\n2. Follow the emergency response plan\n3. Contact the safety officer\n4. Document the incident\n5. Review and update procedures as needed",
-          citations: [
-            {
-              id: "4",
-              documentName: "Safety Procedures.pdf",
-              pageNumber: 1,
-              sectionTitle: "Emergency Response",
-            },
-          ],
-        };
-      }
-
-      return demoResponses.default;
-    };
-
-    const response = getResponse(content);
-
-    const assistantMessage: Message = {
-      id: (Date.now() + 1).toString(),
-      role: "assistant",
-      content: response.content,
-      citations: response.citations,
-      timestamp: new Date(),
-    };
-
-    setMessages((prev) => [...prev, assistantMessage]);
-    setIsLoading(false);
+    try {
+      await dispatch(sendMessage({ chatId: activeChatId, question: content })).unwrap();
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error || "Failed to send message",
+        variant: "destructive",
+      });
+    }
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -198,6 +188,32 @@ const Chat = () => {
     setShowMobileMenu(null);
   };
 
+  const handleNewChat = () => {
+    const newId = crypto.randomUUID();
+    navigate(`/chat/${newId}`);
+    setShowHistoryPanel(false);
+    setShowMobileMenu(null);
+  };
+
+  const handleDeleteChat = async (id: string) => {
+    try {
+      await dispatch(deleteChatThunk(id)).unwrap();
+      toast({
+        title: "Chat deleted",
+        description: "The conversation was removed successfully.",
+      });
+      if (id === activeChatId) {
+        navigate("/chat"); // This will trigger the "new chat" effect
+      }
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error || "Failed to delete chat",
+        variant: "destructive"
+      });
+    }
+  };
+
   const handleAddSource = () => {
     // Navigate to upload or open upload modal
     // navigate("/admin/upload");
@@ -205,51 +221,60 @@ const Chat = () => {
   };
 
   const handleUpload = async (files: File[]) => {
-    // Simulate upload with progress
-    const newSources = files.map((file, index) => ({
-      id: Date.now().toString() + index,
-      name: file.name,
-      type: "pdf" as const,
-      status: "processing" as const,
-    }));
+    if (!activeChatId) return;
 
-    setSources((prev) => [...prev, ...newSources]);
+    try {
+      await dispatch(uploadPdfs({ files, chatId: activeChatId })).unwrap();
 
-    toast({
-      title: "Upload started!",
-      description: `${files.length} file(s) are being processed and will be available shortly.`,
-    });
-
-    // Simulate processing completion
-    setTimeout(() => {
-      setSources((prev) =>
-        prev.map((source) =>
-          newSources.find((ns) => ns.id === source.id)
-            ? { ...source, status: "ready" as const }
-            : source,
-        ),
-      );
       toast({
-        title: "Processing complete!",
-        description: `${files.length} file(s) are now available in the knowledge base.`,
+        title: "Upload successful!",
+        description: `${files.length} file(s) are being processed and will be available shortly.`,
       });
-    }, 3000);
+
+      // Optionally refresh after a delay to show 'ready' status
+      setTimeout(() => {
+        dispatch(fetchChatPdfs(activeChatId));
+      }, 5000);
+
+    } catch (error: any) {
+      toast({
+        title: "Upload failed",
+        description: error || "Failed to upload PDFs",
+        variant: "destructive",
+      });
+    }
   };
+
+
+
+  // Render logic continues below...
+
 
   return (
     // <DashboardProvider links={chatLinks}>
     <div className="h-screen flex flex-col bg-background">
       {/* Mobile Header */}
       <div className="md:hidden flex items-center justify-between p-3 border-b border-border bg-card">
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={() =>
-            setShowMobileMenu(showMobileMenu === "sources" ? null : "sources")
-          }
-        >
-          <PanelLeft className="w-5 h-5" />
-        </Button>
+        <div className="flex gap-2">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() =>
+              setShowMobileMenu(showMobileMenu === "history" ? null : "history")
+            }
+          >
+            <History className="w-5 h-5" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() =>
+              setShowMobileMenu(showMobileMenu === "sources" ? null : "sources")
+            }
+          >
+            <PanelLeft className="w-5 h-5" />
+          </Button>
+        </div>
         <h1 className="font-semibold text-foreground">Chat</h1>
         <Button
           variant="ghost"
@@ -263,6 +288,38 @@ const Chat = () => {
       </div>
 
       <div className="flex-1 flex overflow-hidden relative">
+        {/* History Panel - Desktop */}
+        <div
+          className={`hidden md:flex w-64 flex-shrink-0 transition-all duration-300 ${showHistoryPanel ? "" : "-ml-64"}`}
+        >
+          <ChatHistory
+            chats={chats}
+            activeChatId={activeChatId}
+            onDeleteChat={handleDeleteChat}
+            onNewChat={handleNewChat}
+            className="w-full"
+          />
+        </div>
+
+        {/* History Panel - Mobile Overlay */}
+        {showMobileMenu === "history" && (
+          <div className="md:hidden absolute inset-0 z-40 flex">
+            <div className="w-64 max-w-[85vw]">
+              <ChatHistory
+                chats={chats}
+                activeChatId={activeChatId}
+                onDeleteChat={handleDeleteChat}
+                onNewChat={handleNewChat}
+                className="w-full h-full"
+              />
+            </div>
+            <div
+              className="flex-1 bg-foreground/20 backdrop-blur-sm"
+              onClick={() => setShowMobileMenu(null)}
+            />
+          </div>
+        )}
+
         {/* Sources Panel - Desktop */}
         <div
           className={`hidden md:flex w-80 flex-shrink-0 transition-all duration-300 ${showSourcesPanel ? "" : "-ml-80"}`}
@@ -304,7 +361,15 @@ const Chat = () => {
               <Button
                 variant="ghost"
                 size="icon"
-                className="h-8 w-8"
+                className={`h-8 w-8 ${showHistoryPanel ? "text-primary bg-secondary" : ""}`}
+                onClick={() => setShowHistoryPanel(!showHistoryPanel)}
+              >
+                <History className="w-4 h-4" />
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                className={`h-8 w-8 ${showSourcesPanel ? "text-primary bg-secondary" : ""}`}
                 onClick={() => setShowSourcesPanel(!showSourcesPanel)}
               >
                 <PanelLeft className="w-4 h-4" />

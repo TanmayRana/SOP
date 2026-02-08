@@ -7,6 +7,8 @@ import {
   type RegisterResponse,
   type SendOtpRequest,
   type VerifyOtpRequest,
+  type UpdateProfileRequest,
+  type UploadAvatarResponse,
 } from "@/store/services/auth.service";
 
 interface AuthState {
@@ -106,6 +108,32 @@ export const getProfile = createAsyncThunk<
     return response;
   } catch (error: any) {
     return rejectWithValue(error.message || "Failed to get profile");
+  }
+});
+
+export const updateProfile = createAsyncThunk<
+  AuthResponse,
+  UpdateProfileRequest,
+  { rejectValue: string }
+>("auth/updateProfile", async (data, { rejectWithValue }) => {
+  try {
+    const response = await authService.updateProfile(data);
+    return response;
+  } catch (error: any) {
+    return rejectWithValue(error.message || "Failed to update profile");
+  }
+});
+
+export const uploadAvatar = createAsyncThunk<
+  UploadAvatarResponse,
+  File,
+  { rejectValue: string }
+>("auth/uploadAvatar", async (file, { rejectWithValue }) => {
+  try {
+    const response = await authService.uploadAvatar(file);
+    return response;
+  } catch (error: any) {
+    return rejectWithValue(error.message || "Failed to upload avatar");
   }
 });
 
@@ -233,6 +261,42 @@ const authSlice = createSlice({
         state.error = action.payload || "Failed to get profile";
         state.isAuthenticated = false;
         state.user = null;
+      });
+
+    // Update Profile
+    builder
+      .addCase(updateProfile.pending, (state) => {
+        state.isLoading = true;
+      })
+      .addCase(
+        updateProfile.fulfilled,
+        (state, action: PayloadAction<AuthResponse>) => {
+          state.isLoading = false;
+          state.user = action.payload.user;
+          state.error = null;
+        },
+      )
+      .addCase(updateProfile.rejected, (state, action) => {
+        state.isLoading = false;
+        state.error = action.payload || "Failed to update profile";
+      });
+
+    // Upload Avatar
+    builder
+      .addCase(uploadAvatar.pending, (state) => {
+        state.isLoading = true;
+      })
+      .addCase(
+        uploadAvatar.fulfilled,
+        (state, action: PayloadAction<UploadAvatarResponse>) => {
+          state.isLoading = false;
+          state.user = action.payload.user;
+          state.error = null;
+        },
+      )
+      .addCase(uploadAvatar.rejected, (state, action) => {
+        state.isLoading = false;
+        state.error = action.payload || "Failed to upload avatar";
       });
   },
 });

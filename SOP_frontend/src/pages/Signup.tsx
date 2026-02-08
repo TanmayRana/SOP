@@ -1,6 +1,6 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { FileText, Mail, Lock, ArrowRight, Loader2, User } from "lucide-react";
+import { FileText, Mail, Lock, ArrowRight, Loader2, User, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -31,7 +31,7 @@ import {
   InputOTPSeparator,
   InputOTPSlot,
 } from "@/components/ui/input-otp";
-import { RefreshCwIcon } from "lucide-react";
+
 
 const Signup = () => {
   const [email, setEmail] = useState("");
@@ -40,6 +40,8 @@ const Signup = () => {
   const [otp, setOtp] = useState("");
   const [verifyEmail, setVerifyEmail] = useState<string | null>(null);
   const [isOpen, setIsOpen] = useState(false);
+  const [countdown, setCountdown] = useState(0);
+  const dialogSessionRef = useRef<string | null>(null);
   const navigate = useNavigate();
   const { toast } = useToast();
 
@@ -47,6 +49,8 @@ const Signup = () => {
   const { isLoading, isAuthenticated, error, user } = useAppSelector(
     (state) => state.auth,
   );
+
+
 
   useEffect(() => {
     if (isAuthenticated && user) {
@@ -65,6 +69,28 @@ const Signup = () => {
     }
   }, [error, toast, dispatch]);
 
+  // Countdown timer effect
+  useEffect(() => {
+    let interval: NodeJS.Timeout;
+    if (countdown > 0) {
+      interval = setInterval(() => {
+        setCountdown((prev) => prev - 1);
+      }, 1000);
+    }
+    return () => clearInterval(interval);
+  }, [countdown]);
+
+  // Start countdown when dialog opens
+  useEffect(() => {
+    if (isOpen && verifyEmail && dialogSessionRef.current !== verifyEmail) {
+      dialogSessionRef.current = verifyEmail;
+      setCountdown(30);
+    } else if (!isOpen) {
+      dialogSessionRef.current = null;
+      setCountdown(0);
+    }
+  }, [isOpen, verifyEmail]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -81,6 +107,7 @@ const Signup = () => {
       });
       setVerifyEmail(email);
       setOtp("");
+      setCountdown(30); // Start 30 second countdown (matching backend)
       setIsOpen(true);
     } catch (error: any) {
       // Error is handled by useEffect above
@@ -95,7 +122,17 @@ const Signup = () => {
         title: "OTP sent",
         description: "We sent a new code to your email.",
       });
+      setCountdown(30); // Reset countdown to 30 seconds (matching backend)
     } catch (error: any) {
+      // Handle cooldown error from backend
+      if (error?.remainingCooldown) {
+        setCountdown(error.remainingCooldown);
+        toast({
+          title: "Please wait",
+          description: `Please wait ${error.remainingCooldown} seconds before requesting another OTP.`,
+          variant: "destructive",
+        });
+      }
       // Error handled by slice toast effect
     }
   };
@@ -264,17 +301,19 @@ const Signup = () => {
             </CardHeader>
             <CardContent>
               <div className="space-y-3">
+
                 <div className="flex items-center justify-between">
                   <label htmlFor="otp-verification">Verification code</label>
                   <Button
                     type="button"
-                    variant="outline"
+                    variant="ghost"
                     size="sm"
                     onClick={handleResendOtp}
-                    disabled={isLoading || !verifyEmail}
+                    disabled={isLoading || !verifyEmail || countdown > 0}
+                    className="h-8 text-primary hover:text-primary/80"
                   >
-                    <RefreshCwIcon className="mr-2 h-4 w-4" />
-                    Resend Code
+                    <RefreshCw className={`mr-2 h-4 w-4 ${countdown > 0 ? 'animate-spin' : ''}`} />
+                    {countdown > 0 ? `Resend in ${countdown}s` : "Resend Code"}
                   </Button>
                 </div>
 
@@ -328,3 +367,4 @@ const Signup = () => {
 };
 
 export default Signup;
+

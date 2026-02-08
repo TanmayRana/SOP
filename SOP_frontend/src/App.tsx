@@ -18,11 +18,17 @@ import Documents from "./pages/Documents";
 import Signup from "./pages/Signup";
 import Profile from "./pages/Profile";
 
+
 const adminLinks = [
   {
     title: "Dashboard",
     url: "/dashboard",
     icon: "LayoutDashboard",
+  },
+  {
+    title: "Chat",
+    url: "/chat",
+    icon: "MessageSquare",
   },
   {
     title: "Documents",
@@ -50,12 +56,14 @@ const App = () => (
             <Route path="/" element={<Landing />} />
             <Route path="/login" element={<Login />} />
             <Route path="/signup" element={<Signup />} />
-            <Route path="/chat/:id" element={<Chat />} />
-            {/* <Route path="/upload" element={<AdminUpload />} /> */}
+            <Route path="/chat" element={<Chat />} />
+            <Route path="/chat/:chatId" element={<Chat />} />
+
 
             <Route element={<DashboardLayout />}>
               <Route path="dashboard" element={<Dashboard />} />
               <Route path="documents" element={<Documents />} />
+
               <Route path="profile" element={<Profile />} />
             </Route>
 

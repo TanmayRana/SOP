@@ -27,7 +27,12 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
 import { useAppDispatch, useAppSelector } from "@/hooks";
-import { getProfile, clearError } from "@/store/slices/auth.slice";
+import {
+  getProfile,
+  clearError,
+  updateProfile,
+  uploadAvatar,
+} from "@/store/slices/auth.slice";
 
 const Profile = () => {
   const navigate = useNavigate();
@@ -38,8 +43,8 @@ const Profile = () => {
   const [isEditing, setIsEditing] = useState(false);
   const [editForm, setEditForm] = useState({
     fullname: user?.fullname || "",
-    email: user?.email || "",
   });
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
 
   React.useEffect(() => {
     dispatch(getProfile());
@@ -60,7 +65,6 @@ const Profile = () => {
     if (user) {
       setEditForm({
         fullname: user.fullname || "",
-        email: user.email || "",
       });
     }
   }, [user]);
@@ -73,24 +77,67 @@ const Profile = () => {
     setIsEditing(false);
     setEditForm({
       fullname: user?.fullname || "",
-      email: user?.email || "",
     });
   };
 
   const handleSave = async () => {
     try {
-      // TODO: Implement update profile API call
+      await dispatch(updateProfile({ fullname: editForm.fullname })).unwrap();
       toast({
         title: "Success",
         description: "Profile updated successfully",
       });
       setIsEditing(false);
-    } catch (error) {
+    } catch (error: any) {
       toast({
         title: "Error",
-        description: "Failed to update profile",
+        description: error || "Failed to update profile",
         variant: "destructive",
       });
+    }
+  };
+
+  const handleAvatarUpload = async (
+    event: React.ChangeEvent<HTMLInputElement>,
+  ) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith("image/")) {
+      toast({
+        title: "Error",
+        description: "Only image files are allowed",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      toast({
+        title: "Error",
+        description: "File size must be less than 5MB",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      await dispatch(uploadAvatar(file)).unwrap();
+      toast({
+        title: "Success",
+        description: "Avatar updated successfully",
+      });
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error || "Failed to upload avatar",
+        variant: "destructive",
+      });
+    }
+
+    // Reset file input
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
     }
   };
 
@@ -158,9 +205,17 @@ const Profile = () => {
                     variant="outline"
                     size="sm"
                     className="absolute -bottom-2 -right-2 h-8 w-8 rounded-full p-0"
+                    onClick={() => fileInputRef.current?.click()}
                   >
                     <Camera className="h-4 w-4" />
                   </Button>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/*"
+                    onChange={handleAvatarUpload}
+                    className="hidden"
+                  />
                 </div>
                 <div>
                   <CardTitle className="text-xl">
@@ -242,15 +297,13 @@ const Profile = () => {
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="email">Email</Label>
+                      <Label htmlFor="email">Email Address</Label>
                       <Input
                         id="email"
                         type="email"
-                        value={editForm.email}
-                        onChange={(e) =>
-                          setEditForm({ ...editForm, email: e.target.value })
-                        }
-                        placeholder="Enter your email"
+                        value={user?.email || ""}
+                        disabled
+                        className="bg-muted"
                       />
                     </div>
                   </div>

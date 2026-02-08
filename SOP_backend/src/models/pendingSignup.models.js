@@ -45,6 +45,7 @@ const pendingSignupSchema = new Schema(
   }
 );
 
+// Auto-delete after 1 hour if not verified
 pendingSignupSchema.index({ createdAt: 1 }, { expireAfterSeconds: 60 * 60 });
 
 const PendingSignup = model('PendingSignup', pendingSignupSchema);

@@ -18,7 +18,7 @@ const setAuthCookies = (res, { accessToken, refreshToken }) => {
     httpOnly: true,
     secure: process.env.NODE_ENV === 'production',
     sameSite: 'strict',
-    maxAge: 15 * 60 * 1000,
+    maxAge: 2 * 24 * 60 * 60 * 1000, // 2 days
   });
 
   res.cookie('refreshToken', refreshToken, {
@@ -85,8 +85,11 @@ const register = asyncHandler(async (req, res) => {
       (Date.now() - pending.otpLastSentAt.getTime()) / 1000
     );
     if (secondsSinceLastSent < OTP_RESEND_COOLDOWN_SECONDS) {
+      const remainingCooldown =
+        OTP_RESEND_COOLDOWN_SECONDS - secondsSinceLastSent;
       return res.status(429).json({
         message: 'Please wait before requesting another OTP',
+        remainingCooldown,
       });
     }
   }
@@ -178,8 +181,11 @@ const sendOtp = asyncHandler(async (req, res) => {
       (Date.now() - pending.otpLastSentAt.getTime()) / 1000
     );
     if (secondsSinceLastSent < OTP_RESEND_COOLDOWN_SECONDS) {
+      const remainingCooldown =
+        OTP_RESEND_COOLDOWN_SECONDS - secondsSinceLastSent;
       return res.status(429).json({
         message: 'Please wait before requesting another OTP',
+        remainingCooldown,
       });
     }
   }
@@ -303,7 +309,7 @@ const refreshToken = asyncHandler(async (req, res) => {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'strict',
-      maxAge: 15 * 60 * 1000, // 15 minutes
+      maxAge: 2 * 24 * 60 * 60 * 1000, // 2 days
     });
 
     res.json({ message: 'Token refreshed successfully' });
@@ -318,26 +324,4 @@ const refreshToken = asyncHandler(async (req, res) => {
   }
 });
 
-const getProfile = asyncHandler(async (req, res) => {
-  res.json({
-    user: {
-      id: req.user._id,
-      fullname: req.user.fullname,
-      email: req.user.email,
-      avatar: req.user.avatar,
-      lastLogin: req.user.lastLogin,
-      createdAt: req.user.createdAt,
-      isEmailVerified: req.user.isEmailVerified,
-    },
-  });
-});
-
-export {
-  register,
-  login,
-  sendOtp,
-  verifyOtp,
-  logout,
-  refreshToken,
-  getProfile,
-};
+export { register, login, sendOtp, verifyOtp, logout, refreshToken };

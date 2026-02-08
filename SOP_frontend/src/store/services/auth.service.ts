@@ -35,6 +35,23 @@ export interface VerifyOtpRequest {
   otp: string;
 }
 
+export interface UpdateProfileRequest {
+  fullname: string;
+}
+
+export interface UploadAvatarResponse {
+  message: string;
+  avatar: string;
+  user: {
+    id: string;
+    fullname: string;
+    email: string;
+    avatar?: string;
+    lastLogin?: string;
+    isEmailVerified?: boolean;
+  };
+}
+
 const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:5000";
 
 class AuthService {
@@ -67,6 +84,35 @@ class AuthService {
     }
   }
 
+  private async profileRequest(endpoint: string, options: RequestInit = {}) {
+    const url = `${API_BASE_URL}/api/profile${endpoint}`;
+
+    const config: RequestInit = {
+      headers: {
+        "Content-Type": "application/json",
+        ...options.headers,
+      },
+      credentials: "include",
+      ...options,
+    };
+
+    try {
+      const response = await fetch(url, config);
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(
+          errorData.message || `HTTP error! status: ${response.status}`,
+        );
+      }
+
+      return await response.json();
+    } catch (error) {
+      console.error("Profile service error:", error);
+      throw error;
+    }
+  }
+
   async login(credentials: LoginRequest): Promise<AuthResponse> {
     return this.request("/login", {
       method: "POST",
@@ -88,9 +134,44 @@ class AuthService {
   }
 
   async getProfile(): Promise<AuthResponse> {
-    return this.request("/profile", {
+    return this.profileRequest("/", {
       method: "GET",
     });
+  }
+
+  async updateProfile(data: UpdateProfileRequest): Promise<AuthResponse> {
+    return this.profileRequest("/", {
+      method: "PATCH",
+      body: JSON.stringify(data),
+    });
+  }
+
+  async uploadAvatar(file: File): Promise<UploadAvatarResponse> {
+    const url = `${API_BASE_URL}/api/profile/upload`;
+    const formData = new FormData();
+    formData.append("avatar", file);
+
+    const config: RequestInit = {
+      method: "POST",
+      body: formData,
+      credentials: "include",
+    };
+
+    try {
+      const response = await fetch(url, config);
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(
+          errorData.message || `HTTP error! status: ${response.status}`,
+        );
+      }
+
+      return await response.json();
+    } catch (error) {
+      console.error("Avatar upload error:", error);
+      throw error;
+    }
   }
 
   async refreshToken(): Promise<{ message: string }> {
