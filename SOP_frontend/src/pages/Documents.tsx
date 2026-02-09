@@ -8,19 +8,49 @@ import {
   FolderOpen,
   MessageSquare,
   Plus,
+  EllipsisVertical,
+  Pencil,
+  Trash,
 } from "lucide-react";
 import DocumentCard, { Document } from "@/components/admin/DocumentCard";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 // import { useAppDispatch, useAppSelector } from "@/store/hooks";
-import { fetchChats, fetchAllDocuments } from "@/store/slices/chat.slice";
+import { fetchChats, fetchAllDocuments, deleteChatThunk, renameChatThunk } from "@/store/slices/chat.slice";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useEffect } from "react";
 import { v4 as uuid } from "uuid";
 import { useAppDispatch, useAppSelector } from "@/hooks";
+import { format } from "date-fns";
 
-// Demo documents removed to use real data from Redux
+
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog"
+import { Label } from "@/components/ui/label";
+
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog"
 
 
 const Documents = () => {
@@ -30,6 +60,21 @@ const Documents = () => {
   const { chats, allDocuments } = useAppSelector((state) => state.chat);
   const [searchQuery, setSearchQuery] = useState("");
   const chatId = uuid();
+
+  const [renameDialogOpen, setRenameDialogOpen] = useState(false);
+  const [chatToRename, setChatToRename] = useState<{ id: string, title: string } | null>(null);
+  const [newTitle, setNewTitle] = useState("");
+  const [isRenaming, setIsRenaming] = useState(false);
+
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [chatToDeleteId, setChatToDeleteId] = useState<string | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+
+
+
+  console.log("allDocuments", allDocuments);
+  console.log("chats", chats);
+
 
   useEffect(() => {
     dispatch(fetchChats());
@@ -42,8 +87,8 @@ const Documents = () => {
     name: pdf.pdfName,
     status: pdf.pdfVectors?.length > 0 ? "ready" : "processing",
     uploadedAt: new Date(pdf.createdAt || Date.now()),
-    pages: 0, // Not stored in DB yet
-    size: "N/A", // Not stored in DB yet
+    pages: parseInt(pdf.pdfPages) || 0,
+    size: pdf.pdfSize || "N/A",
   }));
 
   const filteredDocuments = documents.filter((doc) =>
@@ -67,6 +112,48 @@ const Documents = () => {
       title: "Reprocessing requested",
       description: "Note: Backend reprocessing is pending implementation.",
     });
+  };
+
+  const handleRenameClick = (chat: any) => {
+    setChatToRename({ id: chat.id, title: chat.title });
+    setNewTitle(chat.title);
+    setRenameDialogOpen(true);
+  };
+
+  const handleRenameSave = async () => {
+    if (!chatToRename || !newTitle.trim()) return;
+
+    setIsRenaming(true);
+    try {
+      await dispatch(renameChatThunk({ chatId: chatToRename.id, title: newTitle.trim() })).unwrap();
+      toast({ title: "Success", description: "Chat renamed successfully" });
+      setRenameDialogOpen(false);
+    } catch (error: any) {
+      toast({ title: "Error", description: error || "Failed to rename chat", variant: "destructive" });
+    } finally {
+      setIsRenaming(false);
+    }
+  };
+
+  const confirmDeleteChat = async () => {
+    if (!chatToDeleteId) return;
+
+    setIsDeleting(true);
+    try {
+      await dispatch(deleteChatThunk(chatToDeleteId)).unwrap();
+      toast({ title: "Success", description: "Chat and associated documents deleted" });
+      setDeleteDialogOpen(false);
+    } catch (error: any) {
+      toast({ title: "Error", description: error || "Failed to delete chat", variant: "destructive" });
+    } finally {
+      setIsDeleting(false);
+      setChatToDeleteId(null);
+    }
+  };
+
+  const handleDeleteChatClick = (id: string) => {
+    setChatToDeleteId(id);
+    setDeleteDialogOpen(true);
   };
 
   const handleLogout = () => {
@@ -150,10 +237,11 @@ const Documents = () => {
             {filteredChats.map((chat) => (
               <div
                 key={chat.id}
-                onClick={() => navigate(`/chat/${chat.id}`)}
                 className="flex items-center justify-between p-4 bg-card border border-border rounded-xl hover:bg-secondary/30 transition-colors cursor-pointer group"
               >
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-3"
+                  onClick={() => navigate(`/chat/${chat.id}`)}
+                >
                   <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
                     <MessageSquare className="w-5 h-5 text-primary" />
                   </div>
@@ -161,14 +249,42 @@ const Documents = () => {
                     <h3 className="font-semibold text-foreground group-hover:text-primary transition-colors">
                       {chat.title}
                     </h3>
-                    <p className="text-xs text-muted-foreground">
-                      ID: {chat.id.slice(0, 8)}...
+                    <p className="text-xs text-muted-foreground flex items-center gap-1.5">
+                      {chat.updatedAt && (
+                        <>
+                          <span>{format(new Date(chat.updatedAt), "d MMM yyyy")}</span>
+                          <span>•</span>
+                        </>
+                      )}
+                      {chat.pdfIds.length === 0
+                        ? "No sources"
+                        : `${chat.pdfIds.length} ${chat.pdfIds.length > 1 ? "sources" : "source"}`
+                      }
                     </p>
                   </div>
                 </div>
-                <Button variant="ghost" size="sm" className="hidden sm:flex">
-                  Open Chat
-                </Button>
+                <div className="flex items-center">
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                        <EllipsisVertical className="w-4 h-4 text-muted-foreground" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem onClick={() => handleRenameClick(chat)}>
+                        <Pencil className="w-4 h-4 mr-2" />
+                        Rename
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        onClick={() => handleDeleteChatClick(chat.id)}
+                        className="text-destructive focus:text-destructive"
+                      >
+                        <Trash className="w-4 h-4 mr-2" />
+                        Delete
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
               </div>
             ))}
 
@@ -180,6 +296,64 @@ const Documents = () => {
           </div>
         </TabsContent>
       </Tabs>
+
+
+      {/* Rename Dialog */}
+      <Dialog open={renameDialogOpen} onOpenChange={setRenameDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Rename Chat</DialogTitle>
+          </DialogHeader>
+          <div className="py-4">
+            <Label htmlFor="title" className="mb-2 block">New Title</Label>
+            <Input
+              id="title"
+              value={newTitle}
+              onChange={(e) => setNewTitle(e.target.value)}
+              placeholder="Enter new title..."
+              onKeyDown={(e) => e.key === 'Enter' && handleRenameSave()}
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setRenameDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              onClick={handleRenameSave}
+              disabled={isRenaming || !newTitle.trim()}
+              className="btn-gradient"
+            >
+              {isRenaming ? "Renaming..." : "Save Changes"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Confirmation */}
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action cannot be undone. This will permanently delete the chat
+              and all its associated PDF documents and vector data.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => {
+                e.preventDefault();
+                confirmDeleteChat();
+              }}
+              disabled={isDeleting}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {isDeleting ? "Deleting..." : "Delete Chat"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </main>
   );
 };

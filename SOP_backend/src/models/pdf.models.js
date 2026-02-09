@@ -13,6 +13,18 @@ const pdfSchema = new Schema({
         type: String,
         required: true
     },
+    pdf_public_id: {
+        type: String,
+        required: true
+    },
+    pdfSize: {
+        type: String,
+        required: true
+    },
+    pdfPages: {
+        type: String,
+        required: true
+    },
     userId: {
         type: Schema.Types.ObjectId,
         ref: "User"
@@ -27,7 +39,7 @@ const pdfSchema = new Schema({
             ref: "PdfVector"
         }
     ]
-})
+}, { timestamps: true })
 
 const Pdf = model("Pdf", pdfSchema);
 export default Pdf;

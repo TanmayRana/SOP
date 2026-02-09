@@ -45,31 +45,38 @@ const DashboardLayout = () => (
 
 const queryClient = new QueryClient();
 
+import AuthInitializer from "./components/auth/AuthInitializer";
+import ProtectedRoute from "./components/auth/ProtectedRoute";
+
 const App = () => (
   <Provider store={store}>
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
         <Toaster />
         <Sonner />
-        <BrowserRouter>
-          <Routes>
-            <Route path="/" element={<Landing />} />
-            <Route path="/login" element={<Login />} />
-            <Route path="/signup" element={<Signup />} />
-            <Route path="/chat" element={<Chat />} />
-            <Route path="/chat/:chatId" element={<Chat />} />
+        <AuthInitializer>
+          <BrowserRouter>
+            <Routes>
+              <Route path="/" element={<Landing />} />
+              <Route path="/login" element={<Login />} />
+              <Route path="/signup" element={<Signup />} />
 
+              {/* Protected Routes */}
+              <Route element={<ProtectedRoute />}>
+                <Route path="/chat" element={<Chat />} />
+                <Route path="/chat/:chatId" element={<Chat />} />
 
-            <Route element={<DashboardLayout />}>
-              <Route path="dashboard" element={<Dashboard />} />
-              <Route path="documents" element={<Documents />} />
+                <Route element={<DashboardLayout />}>
+                  <Route path="dashboard" element={<Dashboard />} />
+                  <Route path="documents" element={<Documents />} />
+                  <Route path="profile" element={<Profile />} />
+                </Route>
+              </Route>
 
-              <Route path="profile" element={<Profile />} />
-            </Route>
-
-            <Route path="*" element={<NotFound />} />
-          </Routes>
-        </BrowserRouter>
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+          </BrowserRouter>
+        </AuthInitializer>
       </TooltipProvider>
     </QueryClientProvider>
   </Provider>

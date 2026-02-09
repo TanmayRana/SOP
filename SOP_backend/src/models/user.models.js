@@ -31,8 +31,14 @@ const userSchema = new Schema(
       default: null,
     },
     avatar: {
-      type: String,
-      default: null,
+      url: {
+        type: String,
+        default: null,
+      },
+      public_id: {
+        type: String,
+        default: null,
+      }
     },
     isActive: {
       type: Boolean,

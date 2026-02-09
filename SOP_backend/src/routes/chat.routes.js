@@ -7,7 +7,8 @@ import {
     getChats,
     updateChat,
     deleteChat,
-    getAllUserPdfs
+    getAllUserPdfs,
+    chatRename
 } from "../controllers/chat.controller.js";
 import { authenticate } from "../middleware/auth.middleware.js";
 import multer from "multer";
@@ -28,5 +29,6 @@ router.post("/", authenticate, createChat);
 router.get("/", authenticate, getChats);
 router.patch("/", authenticate, updateChat);
 router.delete("/", authenticate, deleteChat);
+router.patch("/rename", authenticate, chatRename);
 
 export default router;

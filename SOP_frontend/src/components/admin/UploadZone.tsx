@@ -119,9 +119,8 @@ const UploadZone = ({
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}
-        className={`upload-zone text-center cursor-pointer ${
-          isDragOver ? "drag-over" : ""
-        }`}
+        className={`upload-zone text-center cursor-pointer ${isDragOver ? "drag-over" : ""
+          }`}
       >
         <input
           type="file"
@@ -159,7 +158,16 @@ const UploadZone = ({
                 <FileText className="w-5 h-5 text-primary" />
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-foreground truncate">
+                <p
+                  className="
+                    font-medium
+                    text-sm sm:text-base
+                    text-foreground
+                    line-clamp-1
+                    sm:line-clamp-2
+                    break-words
+                  "
+                >
                   {uploadedFile.file.name}
                 </p>
                 <p className="text-xs text-muted-foreground">

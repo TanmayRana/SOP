@@ -18,6 +18,9 @@ interface Chat {
     title: string;
     pdfIds: string[];
     messages: ChatMessage[];
+    createdAt: string;
+    updatedAt: string;
+
 }
 
 interface ChatState {
@@ -29,6 +32,7 @@ interface ChatState {
     isUploading: boolean;
     error: string | null;
     activeChatId: string | null;
+
 }
 
 const initialState: ChatState = {
@@ -40,6 +44,7 @@ const initialState: ChatState = {
     isUploading: false,
     error: null,
     activeChatId: null,
+
 };
 
 // Async thunks
@@ -83,7 +88,7 @@ export const fetchChatPdfs = createAsyncThunk<
 });
 
 export const fetchChats = createAsyncThunk<
-    any[],
+    any,
     void,
     { rejectValue: string }
 >("chat/fetchChats", async (_, { rejectWithValue }) => {
@@ -118,6 +123,19 @@ export const deleteChatThunk = createAsyncThunk<
         return chatId;
     } catch (error: any) {
         return rejectWithValue(error.message || "Failed to delete chat");
+    }
+});
+
+export const renameChatThunk = createAsyncThunk<
+    any,
+    { chatId: string; title: string },
+    { rejectValue: string }
+>("chat/renameChat", async ({ chatId, title }, { rejectWithValue }) => {
+    try {
+        const response = await chatService.renameChat(chatId, title);
+        return response;
+    } catch (error: any) {
+        return rejectWithValue(error.message || "Failed to rename chat");
     }
 });
 
@@ -218,12 +236,17 @@ const chatSlice = createSlice({
 
         // Fetch Chats
         builder
-            .addCase(fetchChats.fulfilled, (state, action: PayloadAction<any[]>) => {
-                state.chats = action.payload.map(chat => ({
+            .addCase(fetchChats.fulfilled, (state, action: PayloadAction<any>) => {
+                const chats = action.payload;
+
+                state.chats = chats.map((chat: any) => ({
                     id: chat._id,
                     title: chat.title || "New Chat",
                     pdfIds: chat.pdfIds,
-                    messages: chat.messages
+                    messages: chat.messages,
+                    createdAt: chat.createdAt,
+                    updatedAt: chat.updatedAt,
+
                 }));
 
                 // If we have an active chat, sync its messages from the newly fetched list
@@ -245,7 +268,10 @@ const chatSlice = createSlice({
                     id: action.payload._id,
                     title: action.payload.title,
                     pdfIds: [],
-                    messages: []
+                    messages: [],
+                    createdAt: action.payload.createdAt,
+                    updatedAt: action.payload.updatedAt,
+
                 });
             });
 
@@ -257,6 +283,16 @@ const chatSlice = createSlice({
                     state.activeChatId = null;
                     state.messages = [];
                     state.sources = [];
+                }
+            });
+
+        // Rename Chat
+        builder
+            .addCase(renameChatThunk.fulfilled, (state, action: PayloadAction<any>) => {
+                const chat = state.chats.find(c => c.id === action.payload._id);
+                if (chat) {
+                    chat.title = action.payload.title;
+                    chat.updatedAt = action.payload.updatedAt;
                 }
             });
 

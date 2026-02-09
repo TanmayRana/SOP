@@ -22,6 +22,7 @@ interface AuthState {
   } | null;
   isLoading: boolean;
   isAuthenticated: boolean;
+  isInitialized: boolean;
   error: string | null;
 }
 
@@ -29,6 +30,7 @@ const initialState: AuthState = {
   user: null,
   isLoading: false,
   isAuthenticated: false,
+  isInitialized: false,
   error: null,
 };
 
@@ -251,6 +253,7 @@ const authSlice = createSlice({
         getProfile.fulfilled,
         (state, action: PayloadAction<AuthResponse>) => {
           state.isLoading = false;
+          state.isInitialized = true;
           state.isAuthenticated = true;
           state.user = action.payload.user;
           state.error = null;
@@ -258,6 +261,7 @@ const authSlice = createSlice({
       )
       .addCase(getProfile.rejected, (state, action) => {
         state.isLoading = false;
+        state.isInitialized = true;
         state.error = action.payload || "Failed to get profile";
         state.isAuthenticated = false;
         state.user = null;

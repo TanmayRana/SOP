@@ -56,14 +56,29 @@ const uploadAvatar = asyncHandler(async (req, res) => {
       { width: 200, height: 200, crop: 'fill' },
       { quality: 'auto' },
     ],
-    public_id: `${req.user._id}_avatar`,
+    // Remove the hardcoded public_id so Cloudinary generates a unique one
+    // or keep it if you want to overwrite, but deleting manually is safer for state
     overwrite: true,
   });
 
-  // Update user avatar URL in DB
+  const currentUser = await User.findById(req.user._id);
+
+  // Delete old avatar if it exists
+  if (currentUser.avatar?.public_id) {
+    await cloudinary.uploader.destroy(currentUser.avatar.public_id).catch(err =>
+      console.error("Cloudinary delete error:", err)
+    );
+  }
+
+  // Update user avatar in DB
   const user = await User.findByIdAndUpdate(
     req.user._id,
-    { avatar: result.secure_url },
+    {
+      avatar: {
+        url: result.secure_url,
+        public_id: result.public_id
+      }
+    },
     { new: true, runValidators: true }
   ).select('-password -refreshToken');
 

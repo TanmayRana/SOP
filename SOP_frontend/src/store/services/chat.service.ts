@@ -110,6 +110,13 @@ class ChatService {
         });
     }
 
+    async renameChat(chatId: string, title: string): Promise<any> {
+        return this.request("/rename", {
+            method: "PATCH",
+            body: JSON.stringify({ chatId, title }),
+        });
+    }
+
     async deleteChat(chatId: string): Promise<any> {
         return this.request("/", {
             method: "DELETE",

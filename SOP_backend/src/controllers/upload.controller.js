@@ -5,6 +5,7 @@ import Pdf from "../models/pdf.models.js";
 import Chat from "../models/chat.models.js";
 import fs from "fs";
 import crypto from "crypto";
+import pdfParse from "pdf-parse";
 
 export const uploadPdf = asyncHandler(async (req, res) => {
     const userId = req.user._id;
@@ -24,6 +25,17 @@ export const uploadPdf = asyncHandler(async (req, res) => {
         const pdfId = crypto.randomUUID();
 
         try {
+            // Read file for metadata extraction
+            const dataBuffer = fs.readFileSync(file.path);
+            const pdfData = await pdfParse(dataBuffer);
+            const pageCount = pdfData.numpages;
+
+            // Format file size
+            const sizeInBytes = file.size;
+            const sizeString = sizeInBytes < 1024 * 1024
+                ? `${(sizeInBytes / 1024).toFixed(1)} KB`
+                : `${(sizeInBytes / (1024 * 1024)).toFixed(1)} MB`;
+
             // Upload to Cloudinary
             const uploadResult = await cloudinary.uploader.upload(file.path, {
                 folder: "sops",
@@ -35,6 +47,9 @@ export const uploadPdf = asyncHandler(async (req, res) => {
                 _id: pdfId,
                 pdfName: file.originalname,
                 pdfUrl: uploadResult.secure_url,
+                pdf_public_id: uploadResult.public_id,
+                pdfSize: sizeString,
+                pdfPages: pageCount.toString(),
                 userId: userId,
                 chatId: chatId
             });

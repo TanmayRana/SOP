@@ -39,35 +39,49 @@ const DocumentCard = ({ document, onDelete, onReprocess }: DocumentCardProps) =>
   const StatusIcon = status.icon;
 
   return (
-    <div className="bg-card border border-border rounded-xl p-4 card-hover">
-      <div className="flex items-start gap-4">
+    <div className="bg-card border border-border rounded-xl p-3 sm:p-4 card-hover">
+      <div className="flex items-center sm:items-start gap-3 sm:gap-4">
         {/* Icon */}
-        <div className="w-12 h-12 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
-          <FileText className="w-6 h-6 text-primary" />
+        <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+          <FileText className="w-5 h-5 sm:w-6 sm:h-6 text-primary" />
         </div>
 
         {/* Content */}
         <div className="flex-1 min-w-0">
           <div className="flex items-start justify-between gap-2">
-            <div>
-              <h4 className="font-medium text-foreground truncate">{document.name}</h4>
-              <div className="flex items-center gap-3 mt-1">
-                <span className={`inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium rounded-full ${status.className}`}>
-                  <StatusIcon className="w-3 h-3" />
+            <div className="min-w-0 flex-1">
+              <h4
+                title={document.name}
+                className="
+                  font-medium
+                  text-sm sm:text-base
+                  text-foreground
+                  line-clamp-1
+                  sm:line-clamp-2
+                  break-words
+                "
+              >
+                {document.name}
+              </h4>
+
+
+              <div className="flex flex-wrap items-center gap-2 sm:gap-3 mt-1">
+                <span className={`inline-flex items-center gap-1 px-2 py-0.5 text-[10px] sm:text-xs font-medium rounded-full ${status.className}`}>
+                  <StatusIcon className="w-2.5 h-2.5 sm:w-3 sm:h-3" />
                   {status.label}
                 </span>
                 {document.pages && (
-                  <span className="text-xs text-muted-foreground">{document.pages} pages</span>
+                  <span className="text-[10px] sm:text-xs text-muted-foreground whitespace-nowrap">{document.pages} pages</span>
                 )}
                 {document.size && (
-                  <span className="text-xs text-muted-foreground">{document.size}</span>
+                  <span className="text-[10px] sm:text-xs text-muted-foreground whitespace-nowrap">{document.size}</span>
                 )}
               </div>
             </div>
           </div>
 
-          <div className="flex items-center justify-between mt-3">
-            <span className="text-xs text-muted-foreground">
+          <div className="flex items-center justify-between mt-2 sm:mt-3">
+            <span className="text-[10px] sm:text-xs text-muted-foreground">
               Uploaded {document.uploadedAt.toLocaleDateString()}
             </span>
             <div className="flex items-center gap-1">
@@ -76,18 +90,18 @@ const DocumentCard = ({ document, onDelete, onReprocess }: DocumentCardProps) =>
                   variant="ghost"
                   size="sm"
                   onClick={() => onReprocess?.(document.id)}
-                  className="h-8 px-2 text-muted-foreground hover:text-foreground"
+                  className="h-7 w-7 sm:h-8 sm:w-8 p-0 text-muted-foreground hover:text-foreground"
                 >
-                  <RefreshCw className="w-4 h-4" />
+                  <RefreshCw className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                 </Button>
               )}
               <Button
                 variant="ghost"
                 size="sm"
                 onClick={() => onDelete?.(document.id)}
-                className="h-8 px-2 text-muted-foreground hover:text-destructive"
+                className="h-7 w-7 sm:h-8 sm:w-8 p-0 text-muted-foreground hover:text-destructive"
               >
-                <Trash2 className="w-4 h-4" />
+                <Trash2 className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
               </Button>
             </div>
           </div>
