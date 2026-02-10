@@ -68,6 +68,7 @@ export const sendMessage = createAsyncThunk<
 >("chat/sendMessage", async ({ chatId, question }, { rejectWithValue }) => {
     try {
         const response = await chatService.sendMessage(chatId, question);
+        console.log("response send message=", response);
         return response;
     } catch (error: any) {
         return rejectWithValue(error.message || "Message failed");
@@ -162,7 +163,7 @@ const chatSlice = createSlice({
             if (chat) {
                 state.messages = chat.messages.map(m => ({
                     ...m,
-                    timestamp: new Date(m.timestamp || Date.now())
+                    timestamp: m.timestamp ? (typeof m.timestamp === 'string' ? m.timestamp : new Date(m.timestamp).toISOString()) : new Date().toISOString()
                 }));
             } else {
                 state.messages = [];
@@ -214,7 +215,7 @@ const chatSlice = createSlice({
                     role: "assistant",
                     content: action.payload.answer,
                     citations: action.payload.citations,
-                    timestamp: new Date(),
+                    timestamp: new Date().toISOString(),
                 });
                 state.error = null;
             })
@@ -255,7 +256,7 @@ const chatSlice = createSlice({
                     if (activeChat) {
                         state.messages = activeChat.messages.map(m => ({
                             ...m,
-                            timestamp: new Date(m.timestamp || Date.now())
+                            timestamp: m.timestamp ? (typeof m.timestamp === 'string' ? m.timestamp : new Date(m.timestamp).toISOString()) : new Date().toISOString()
                         }));
                     }
                 }
@@ -264,15 +265,17 @@ const chatSlice = createSlice({
         // Create Chat
         builder
             .addCase(createNewChat.fulfilled, (state, action: PayloadAction<any>) => {
-                state.chats.unshift({
-                    id: action.payload._id,
-                    title: action.payload.title,
-                    pdfIds: [],
-                    messages: [],
-                    createdAt: action.payload.createdAt,
-                    updatedAt: action.payload.updatedAt,
-
-                });
+                const exists = state.chats.some(c => c.id === action.payload._id);
+                if (!exists) {
+                    state.chats.unshift({
+                        id: action.payload._id,
+                        title: action.payload.title,
+                        pdfIds: [],
+                        messages: [],
+                        createdAt: action.payload.createdAt,
+                        updatedAt: action.payload.updatedAt,
+                    });
+                }
             });
 
         // Delete Chat

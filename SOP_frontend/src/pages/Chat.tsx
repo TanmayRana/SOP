@@ -1,3 +1,4 @@
+
 import { useState, useRef, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import {
@@ -12,8 +13,11 @@ import {
   FolderOpen,
   MessageSquare,
   History,
+  X,
+  Plus
 } from "lucide-react";
-import ChatMessage, { Message, Citation } from "@/components/chat/ChatMessage";
+import ChatMessage from "@/components/chat/ChatMessage";
+import { type ChatMessage as Message, type Citation } from "@/store/services/chat.service";
 import SourcesPanel from "@/components/chat/SourcesPanel";
 import StudioPanel from "@/components/chat/StudioPanel";
 import ChatHistory from "@/components/chat/ChatHistory";
@@ -43,47 +47,7 @@ import {
 } from "@/store/slices/chat.slice";
 import axios from "axios";
 
-// Demo data
-const demoResponses: Record<
-  string,
-  { content: string; citations: Citation[] }
-> = {
-  refund: {
-    content:
-      "To process a customer refund, follow these steps:\n\n1. Verify the original purchase in the Order Management System\n2. Confirm the return is within the 30-day policy window\n3. Open the Returns Portal and select 'Process Refund'\n4. Enter the order number and reason code\n5. Approve the refund - it will process within 3-5 business days",
-    citations: [
-      {
-        id: "1",
-        documentName: "Returns Policy.pdf",
-        pageNumber: 12,
-        sectionTitle: "Refund Processing Steps",
-      },
-      {
-        id: "2",
-        documentName: "Customer Service Manual.pdf",
-        pageNumber: 45,
-        sectionTitle: "Order System Access",
-      },
-    ],
-  },
-  password: {
-    content:
-      "To reset your corporate password:\n\n1. Go to the IT Self-Service Portal at help.company.com\n2. Click 'Forgot Password'\n3. Enter your employee ID\n4. Complete the verification via your registered mobile\n5. Create a new password (minimum 12 characters, 1 uppercase, 1 number, 1 symbol)\n\nNote: You must change your password every 90 days.",
-    citations: [
-      {
-        id: "3",
-        documentName: "IT Security Policy.pdf",
-        pageNumber: 8,
-        sectionTitle: "Password Requirements",
-      },
-    ],
-  },
-  default: {
-    content:
-      "I don't know. This information does not exist in the uploaded SOPs. Please contact your manager or the relevant department for assistance with this question.",
-    citations: [],
-  },
-};
+// Demo data - Removed unused demo data
 
 const Chat = () => {
   const navigate = useNavigate();
@@ -103,6 +67,15 @@ const Chat = () => {
     "sources" | "studio" | "history" | null
   >(null);
 
+
+
+  // console.log("showhistory", showHistoryPanel);
+  // console.log("showstudio", showStudioPanel);
+  // console.log("showsources", showSourcesPanel);
+
+  console.log("showmobilemenu=", showMobileMenu);
+
+
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -119,13 +92,19 @@ const Chat = () => {
         if (chatId !== activeChatId) {
           dispatch(setChatId(chatId));
           dispatch(fetchChatPdfs(chatId));
-          // If chat doesn't exist in our list, try to create/fetch it
-          if (!chats.find(c => c.id === chatId)) {
+
+          // Wait for chats to load before checking existence to reduce race conditions
+          // but we still try to create if it's not found, as the backend is now idempotent
+          const chatExists = chats.some(c => c.id === chatId);
+          if (!chatExists) {
             try {
               await dispatch(createNewChat({ chatId, title: "New Chat" })).unwrap();
             } catch (e) {
-              // Chat might already exist but not in current fetch list, or it's just being created
-              console.log("Chat existence handled by backend or failed creation", e);
+              // Duplicate key errors are now handled by backend (returns 200 with existing chat)
+              // Only log real failures
+              if (axios.isAxiosError(e) && e.response?.status !== 409) {
+                console.error("Failed to ensure chat existence:", e);
+              }
             }
           }
         }
@@ -136,7 +115,15 @@ const Chat = () => {
     };
 
     initializeChat();
-  }, [chatId, activeChatId, dispatch, navigate, chats]);
+  }, [chatId, activeChatId, dispatch, navigate, chats.length]); // Depend on chats.length to trigger when list updates
+
+  // Auto-resize textarea
+  useEffect(() => {
+    if (inputRef.current) {
+      inputRef.current.style.height = 'auto';
+      inputRef.current.style.height = `${Math.min(inputRef.current.scrollHeight, 120)}px`;
+    }
+  }, [input]);
 
   // Get all citations from messages
   const allCitations = messages
@@ -162,7 +149,7 @@ const Chat = () => {
       id: Date.now().toString(),
       role: "user",
       content,
-      timestamp: new Date(),
+      timestamp: new Date().toISOString(),
     }));
 
     try {
@@ -245,29 +232,25 @@ const Chat = () => {
     }
   };
 
-
-
-  // Render logic continues below...
-
-
   return (
-    // <DashboardProvider links={chatLinks}>
     <div className="h-screen flex flex-col bg-background">
-      {/* Mobile Header */}
-      <div className="md:hidden flex items-center justify-between p-3 border-b border-border bg-card">
-        <div className="flex gap-2">
+      <div className="md:hidden flex items-center justify-between px-4 py-3 border-b border-border bg-card/95 backdrop-blur-md sticky top-0 z-40 shadow-sm">
+        <div className="flex items-center gap-1">
           <Button
             variant="ghost"
             size="icon"
-            onClick={() =>
-              setShowMobileMenu(showMobileMenu === "history" ? null : "history")
-            }
+            className={`h-10 w-10 rounded-full transition-colors ${showHistoryPanel ? "bg-primary/10 text-primary" : ""}`}
+            onClick={() => {
+              setShowHistoryPanel(true);
+              setShowMobileMenu(null);
+            }}
           >
             <History className="w-5 h-5" />
           </Button>
           <Button
             variant="ghost"
             size="icon"
+            className={`h-10 w-10 rounded-full transition-colors ${showMobileMenu === "sources" ? "bg-primary/10 text-primary" : ""}`}
             onClick={() =>
               setShowMobileMenu(showMobileMenu === "sources" ? null : "sources")
             }
@@ -275,10 +258,16 @@ const Chat = () => {
             <PanelLeft className="w-5 h-5" />
           </Button>
         </div>
-        <h1 className="font-semibold text-foreground">Chat</h1>
+
+        <div className="flex flex-col items-center">
+          <span className="text-[10px] uppercase tracking-wider font-bold text-muted-foreground/60 leading-none mb-0.5">SOP Genius</span>
+          <h1 className="font-bold text-foreground text-sm tracking-tight">Chat Assistant</h1>
+        </div>
+
         <Button
           variant="ghost"
           size="icon"
+          className={`h-10 w-10 rounded-full transition-colors ${showMobileMenu === "studio" ? "bg-primary/10 text-primary" : ""}`}
           onClick={() =>
             setShowMobileMenu(showMobileMenu === "studio" ? null : "studio")
           }
@@ -288,41 +277,11 @@ const Chat = () => {
       </div>
 
       <div className="flex-1 flex overflow-hidden relative">
-        {/* History Panel - Desktop */}
-        <div
-          className={`hidden md:flex w-64 flex-shrink-0 transition-all duration-300 ${showHistoryPanel ? "" : "-ml-64"}`}
-        >
-          <ChatHistory
-            chats={chats}
-            activeChatId={activeChatId}
-            onDeleteChat={handleDeleteChat}
-            onNewChat={handleNewChat}
-            className="w-full"
-          />
-        </div>
 
-        {/* History Panel - Mobile Overlay */}
-        {showMobileMenu === "history" && (
-          <div className="md:hidden absolute inset-0 z-40 flex">
-            <div className="w-64 max-w-[85vw]">
-              <ChatHistory
-                chats={chats}
-                activeChatId={activeChatId}
-                onDeleteChat={handleDeleteChat}
-                onNewChat={handleNewChat}
-                className="w-full h-full"
-              />
-            </div>
-            <div
-              className="flex-1 bg-foreground/20 backdrop-blur-sm"
-              onClick={() => setShowMobileMenu(null)}
-            />
-          </div>
-        )}
 
         {/* Sources Panel - Desktop */}
         <div
-          className={`hidden md:flex w-80 flex-shrink-0 transition-all duration-300 ${showSourcesPanel ? "" : "-ml-80"}`}
+          className={`hidden md:flex flex-shrink-0 transition-all duration-300 ${showSourcesPanel ? "w-72 lg:w-80" : "w-14"}`}
         >
           <SourcesPanel
             sources={sources}
@@ -330,24 +289,48 @@ const Chat = () => {
             onAddSource={handleAddSource}
             onCitationClick={handleCitationClick}
             className="w-full"
+            showHistoryPanel={showHistoryPanel}
+            setShowHistoryPanel={setShowHistoryPanel}
+            showSourcesPanel={showSourcesPanel}
+            setShowSourcesPanel={setShowSourcesPanel}
           />
         </div>
 
         {/* Sources Panel - Mobile Overlay */}
         {showMobileMenu === "sources" && (
-          <div className="md:hidden absolute inset-0 z-40 flex">
-            <div className="w-80 max-w-[85vw]">
+          <div className="md:hidden fixed inset-0 z-[100] flex animate-in fade-in duration-200">
+            <div className="w-[85%] max-w-[320px] bg-card h-full shadow-2xl flex flex-col animate-in slide-in-from-left duration-300">
+              <div className="flex items-center justify-between p-4 border-b border-border bg-card/50 backdrop-blur-sm">
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
+                    <PanelLeft className="w-4 h-4 text-primary" />
+                  </div>
+                  <h2 className="font-bold text-foreground">Sources</h2>
+                </div>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8 rounded-full hover:bg-destructive/10 hover:text-destructive transition-colors"
+                  onClick={() => setShowMobileMenu(null)}
+                >
+                  <X className="w-4 h-4" />
+                </Button>
+              </div>
               <SourcesPanel
                 sources={sources}
                 citations={allCitations}
                 onAddSource={handleAddSource}
                 onCitationClick={handleCitationClick}
                 onClose={() => setShowMobileMenu(null)}
-                className="w-full h-full"
+                className="flex-1 overflow-hidden"
+                showHistoryPanel={showHistoryPanel}
+                setShowHistoryPanel={setShowHistoryPanel}
+                showSourcesPanel={true}
+                setShowSourcesPanel={setShowSourcesPanel}
               />
             </div>
             <div
-              className="flex-1 bg-foreground/20 backdrop-blur-sm"
+              className="flex-1 bg-black/40 backdrop-blur-[2px]"
               onClick={() => setShowMobileMenu(null)}
             />
           </div>
@@ -355,8 +338,8 @@ const Chat = () => {
 
         {/* Main Chat Area */}
         <div className="flex-1 flex flex-col min-w-0 border-x border-border bg-background">
-          {/* Chat Header - Desktop */}
-          <div className="hidden md:flex items-center justify-between p-4 border-b border-border">
+          {/* Chat Header - Desktop Only */}
+          <div className="hidden md:flex items-center justify-between p-3 lg:p-4 border-b border-border bg-card/50">
             <div className="flex items-center gap-2">
               <Button
                 variant="ghost"
@@ -366,17 +349,17 @@ const Chat = () => {
               >
                 <History className="w-4 h-4" />
               </Button>
-              <Button
+              {/* <Button
                 variant="ghost"
                 size="icon"
                 className={`h-8 w-8 ${showSourcesPanel ? "text-primary bg-secondary" : ""}`}
                 onClick={() => setShowSourcesPanel(!showSourcesPanel)}
               >
                 <PanelLeft className="w-4 h-4" />
-              </Button>
+              </Button> */}
               <h1 className="font-semibold text-foreground">Chat</h1>
             </div>
-            <div className="flex items-center gap-1">
+            {/* <div className="flex items-center gap-1">
               <Button variant="ghost" size="icon" className="h-8 w-8">
                 <Settings2 className="w-4 h-4" />
               </Button>
@@ -386,38 +369,40 @@ const Chat = () => {
               <Button
                 variant="ghost"
                 size="icon"
-                className="h-8 w-8"
+                className={`h-8 w-8 ${showStudioPanel ? "text-primary bg-secondary" : ""}`}
                 onClick={() => setShowStudioPanel(!showStudioPanel)}
               >
                 <PanelRight className="w-4 h-4" />
               </Button>
-            </div>
+            </div> */}
           </div>
 
-          {/* Messages Area */}
-          <div className="flex-1 overflow-y-auto p-4">
+          {/* Messages Area - Responsive Padding */}
+          <div className="flex-1 overflow-y-auto p-3 sm:p-4 md:p-6">
             {messages.length === 0 ? (
               <div className="h-full flex flex-col items-center justify-center text-center px-4">
-                <div className="w-14 h-14 rounded-full bg-secondary/50 flex items-center justify-center mb-4">
-                  <Upload className="w-6 h-6 text-primary" />
+                <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-secondary/50 flex items-center justify-center mb-3 sm:mb-4">
+                  <Upload className="w-5 h-5 sm:w-6 sm:h-6 text-primary" />
                 </div>
-                <h2 className="text-xl font-semibold text-foreground mb-2">
+                <h2 className="text-lg sm:text-xl font-semibold text-foreground mb-2">
                   Start a conversation
                 </h2>
-                <p className="text-muted-foreground mb-4 max-w-md">
+                <p className="text-sm sm:text-base text-muted-foreground mb-4 max-w-md">
                   Upload documents or ask questions about your SOPs and
                   policies.
                 </p>
                 <Button
                   onClick={handleAddSource}
                   variant="outline"
-                  className="mt-4"
+                  className="mt-2 sm:mt-4"
+                  size="sm"
                 >
+                  <Upload className="w-4 h-4 mr-2" />
                   Upload a source
                 </Button>
               </div>
             ) : (
-              <div className="max-w-3xl mx-auto space-y-4">
+              <div className="max-w-3xl mx-auto space-y-3 sm:space-y-4">
                 {messages.map((message) => (
                   <ChatMessage
                     key={message.id}
@@ -427,7 +412,7 @@ const Chat = () => {
                 ))}
                 {isLoading && (
                   <div className="flex justify-start animate-fade-in">
-                    <div className="chat-bubble-assistant px-4 py-3">
+                    <div className="chat-bubble-assistant px-3 sm:px-4 py-2 sm:py-3">
                       <div className="flex items-center gap-2">
                         <div className="flex gap-1">
                           <span
@@ -455,33 +440,39 @@ const Chat = () => {
             )}
           </div>
 
-          {/* Chat Input */}
-          <div className="p-4 border-t border-border bg-card/50">
+          {/* Chat Input - Enhanced Mobile */}
+          <div className="p-3 sm:p-4 border-t border-border bg-card/50 backdrop-blur-sm">
             <div className="max-w-3xl mx-auto">
-              <div className="flex items-center gap-3 bg-secondary/50 rounded-xl border border-border p-2 focus-within:ring-2 focus-within:ring-primary/20 focus-within:border-primary transition-all">
+              <div className="flex items-end gap-2 sm:gap-3 bg-secondary/50 rounded-xl sm:rounded-2xl border border-border p-2 focus-within:ring-2 focus-within:ring-primary/20 focus-within:border-primary transition-all">
                 <textarea
                   ref={inputRef}
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
                   onKeyDown={handleKeyDown}
-                  placeholder="Type your message here..."
+                  placeholder="Type your message..."
                   rows={1}
-                  className="flex-1 resize-none bg-transparent border-0 outline-none text-sm px-2 py-2 placeholder:text-muted-foreground min-h-[40px] max-h-[120px]"
+                  className="flex-1 resize-none bg-transparent border-0 outline-none text-sm sm:text-base px-2 py-2 placeholder:text-muted-foreground min-h-[40px] max-h-[120px]"
                   style={{ height: "auto" }}
                 />
-                <div className="flex items-center gap-2 pr-2">
-                  <span className="text-xs text-muted-foreground">
+                <div className="flex flex-col sm:flex-row items-end sm:items-center gap-2 pr-1 pb-1">
+                  <span className="text-xs text-muted-foreground whitespace-nowrap hidden sm:block">
                     {sources.length} sources
                   </span>
                   <Button
                     onClick={handleSendMessage}
                     disabled={!input.trim() || isLoading}
                     size="icon"
-                    className="h-8 w-8 rounded-full bg-primary hover:bg-primary/90 disabled:opacity-50 transition-all hover:scale-105"
+                    className="h-9 w-9 sm:h-10 sm:w-10 rounded-full bg-primary hover:bg-primary/90 disabled:opacity-50 transition-all hover:scale-105 flex-shrink-0"
                   >
-                    <ArrowRight className="w-4 h-4" />
+                    <ArrowRight className="w-4 h-4 sm:w-5 sm:h-5" />
                   </Button>
                 </div>
+              </div>
+              {/* Mobile source count */}
+              <div className="flex justify-center mt-2 sm:hidden">
+                <span className="text-xs text-muted-foreground">
+                  {sources.length} sources available
+                </span>
               </div>
             </div>
           </div>
@@ -489,22 +480,44 @@ const Chat = () => {
 
         {/* Studio Panel - Desktop */}
         <div
-          className={`hidden md:flex w-80 flex-shrink-0 transition-all duration-300 ${showStudioPanel ? "" : "-mr-80"}`}
+          className={`hidden md:flex flex-shrink-0 transition-all duration-300 ${showStudioPanel ? "w-72 lg:w-80" : "w-14"}`}
         >
-          <StudioPanel className="w-full" />
+          <StudioPanel
+            className="w-full"
+            showStudioPanel={showStudioPanel}
+            setShowStudioPanel={setShowStudioPanel}
+          />
         </div>
 
         {/* Studio Panel - Mobile Overlay */}
         {showMobileMenu === "studio" && (
-          <div className="md:hidden absolute inset-0 z-40 flex justify-end">
+          <div className="md:hidden fixed inset-0 z-[100] flex justify-end animate-in fade-in duration-200">
             <div
-              className="flex-1 bg-foreground/20 backdrop-blur-sm"
+              className="flex-1 bg-black/40 backdrop-blur-[2px]"
               onClick={() => setShowMobileMenu(null)}
             />
-            <div className="w-80 max-w-[85vw]">
+            <div className="w-[85%] max-w-[320px] bg-card h-full shadow-2xl flex flex-col animate-in slide-in-from-right duration-300">
+              <div className="flex items-center justify-between p-4 border-b border-border bg-card/50 backdrop-blur-sm">
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
+                    <PanelRight className="w-4 h-4 text-primary" />
+                  </div>
+                  <h2 className="font-bold text-foreground">Studio</h2>
+                </div>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8 rounded-full hover:bg-destructive/10 hover:text-destructive transition-colors"
+                  onClick={() => setShowMobileMenu(null)}
+                >
+                  <X className="w-4 h-4" />
+                </Button>
+              </div>
               <StudioPanel
                 onClose={() => setShowMobileMenu(null)}
-                className="w-full h-full"
+                className="flex-1 overflow-hidden"
+                showStudioPanel={true}
+                setShowStudioPanel={setShowStudioPanel}
               />
             </div>
           </div>
@@ -518,119 +531,169 @@ const Chat = () => {
         onClose={() => setSelectedCitation(null)}
       />
 
-      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader className="text-center pb-4 sticky top-0 bg-background z-10">
-            <DialogTitle className="text-2xl font-bold text-foreground">
-              Upload SOP Documents
-            </DialogTitle>
-            <DialogDescription className="text-muted-foreground mt-2 max-w-md">
-              Upload PDF documents to add them to the knowledge base. Documents
-              will be processed and indexed automatically.
+      {/* History Dialog */}
+      <Dialog open={showHistoryPanel} onOpenChange={setShowHistoryPanel}>
+        <DialogContent className="sm:max-w-[500px] p-0 overflow-hidden border-none shadow-2xl">
+          <div className="bg-card flex flex-col h-[70vh]">
+            {/* Premium Header - "Butter" Layout */}
+            {/* p-5 border-b border-border/50 flex items-center justify-center gap-8 bg-gradient-to-b from-secondary/30 to-background/50 backdrop-blur-md */}
+            <div className="p-4 border-b border-border flex items-center gap-4 bg-card/50 backdrop-blur-sm">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
+                  <History className="w-4 h-4 text-primary" />
+                </div>
+                <DialogTitle className="font-semibold">Chat History</DialogTitle>
+              </div>
+
+              <div className="h-8 w-[1px] bg-border/60 mx-1" />
+
+              <Button
+                variant="outline"
+                onClick={handleNewChat}
+                className="h-8 rounded-2xl bg-primary text-primary-foreground hover:bg-primary/90 hover:scale-105 transition-all shadow-md gap-2 border-none px-5 group"
+              >
+                <Plus className="w-4 h-4 group-hover:rotate-90 transition-transform duration-300" />
+                <span className="text-sm font-semibold">New Chat</span>
+              </Button>
+            </div>
+            <DialogDescription className="sr-only">
+              Browse and manage your past chat sessions.
             </DialogDescription>
-          </DialogHeader>
+            <ChatHistory
+              chats={chats}
+              activeChatId={activeChatId}
+              onDeleteChat={handleDeleteChat}
+              onNewChat={() => {
+                handleNewChat();
+                setShowHistoryPanel(false);
+              }}
+              className="flex-1 overflow-hidden"
+            />
+          </div>
+        </DialogContent>
+      </Dialog>
 
-          <div className="space-y-6 pb-6">
-            {/* Upload Zone */}
-            <div className="bg-gradient-to-br from-blue-50 to-purple-50 dark:from-blue-950 dark:to-purple-950 border-2 border-dashed border-blue-200 dark:border-blue-800 rounded-xl p-8 transition-all hover:border-blue-400 dark:hover:border-blue-600">
-              <UploadZone onUpload={handleUpload} />
-            </div>
+      {/* Upload Dialog - Responsive & Premium */}
+      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+        <DialogContent className="sm:max-w-[600px] gap-0 p-0 overflow-hidden border-none shadow-2xl">
+          <div className="bg-gradient-to-br from-primary/5 via-background to-secondary/30">
+            <DialogHeader className="p-6 pb-0">
+              <div className="w-12 h-12 rounded-2xl bg-primary/10 flex items-center justify-center mb-4">
+                <Upload className="w-6 h-6 text-primary" />
+              </div>
+              <DialogTitle className="text-2xl font-bold tracking-tight">
+                Upload Knowledge Base
+              </DialogTitle>
+              <DialogDescription className="text-base text-muted-foreground mt-2">
+                Add PDF documents to train your AI assistant. Files are encrypted and processed securely.
+              </DialogDescription>
+            </DialogHeader>
 
-            {/* Quick Actions */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <Button
-                variant="outline"
-                className="h-12 flex items-center gap-2 hover:bg-blue-50 dark:hover:bg-blue-950 transition-colors"
-                onClick={() => {
-                  toast({
-                    title: "Coming soon!",
-                    description:
-                      "Bulk upload feature will be available in the next update.",
-                  });
-                }}
-              >
-                <FolderOpen className="w-4 h-4" />
-                Browse Files
-              </Button>
-              <Button
-                variant="outline"
-                className="h-12 flex items-center gap-2 hover:bg-purple-50 dark:hover:bg-purple-950 transition-colors"
-                onClick={() => {
-                  toast({
-                    title: "Coming soon!",
-                    description:
-                      "URL upload feature will be available in the next update.",
-                  });
-                }}
-              >
-                <MessageSquare className="w-4 h-4" />
-                Add from URL
-              </Button>
-            </div>
+            <div className="p-6 space-y-6">
+              {/* Upload Zone */}
+              <div className="relative group">
+                <div className="absolute -inset-1 bg-gradient-to-r from-primary/20 to-secondary/20 rounded-2xl blur opacity-25 group-hover:opacity-50 transition duration-1000 group-hover:duration-200"></div>
+                <div className="relative bg-card/50 backdrop-blur-sm border-2 border-dashed border-border group-hover:border-primary/50 rounded-xl transition-all duration-300">
+                  <UploadZone onUpload={handleUpload} />
+                </div>
+              </div>
 
-            {/* Enhanced Tips - Compact Version */}
-            <div className="bg-muted/50 rounded-xl p-4 border border-border">
-              <h3 className="font-semibold text-foreground mb-3 flex items-center gap-2">
-                <span className="w-2 h-2 bg-blue-500 rounded-full"></span>
-                Quick Tips
-              </h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                <div className="flex items-center gap-2">
-                  <div className="w-6 h-6 bg-green-100 dark:bg-green-900 rounded flex items-center justify-center flex-shrink-0">
-                    <span className="text-green-600 dark:text-green-400 text-xs font-bold">
-                      ✓
-                    </span>
+              {/* Quick Actions */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+                <Button
+                  variant="outline"
+                  className="h-11 sm:h-12 flex items-center justify-center gap-2 hover:bg-blue-50 dark:hover:bg-blue-950 transition-colors text-sm sm:text-base"
+                  onClick={() => {
+                    toast({
+                      title: "Coming soon!",
+                      description:
+                        "Bulk upload feature will be available in the next update.",
+                    });
+                  }}
+                >
+                  <FolderOpen className="w-4 h-4" />
+                  Browse Files
+                </Button>
+                <Button
+                  variant="outline"
+                  className="h-11 sm:h-12 flex items-center justify-center gap-2 hover:bg-purple-50 dark:hover:bg-purple-950 transition-colors text-sm sm:text-base"
+                  onClick={() => {
+                    toast({
+                      title: "Coming soon!",
+                      description:
+                        "URL upload feature will be available in the next update.",
+                    });
+                  }}
+                >
+                  <MessageSquare className="w-4 h-4" />
+                  Add from URL
+                </Button>
+              </div>
+
+              {/* Enhanced Tips - Compact & Responsive */}
+              <div className="bg-muted/50 rounded-lg sm:rounded-xl p-3 sm:p-4 border border-border">
+                <h3 className="font-semibold text-sm sm:text-base text-foreground mb-3 flex items-center gap-2">
+                  <span className="w-2 h-2 bg-blue-500 rounded-full"></span>
+                  Quick Tips
+                </h3>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3">
+                  <div className="flex items-center gap-2">
+                    <div className="w-6 h-6 bg-green-100 dark:bg-green-900 rounded flex items-center justify-center flex-shrink-0">
+                      <span className="text-green-600 dark:text-green-400 text-xs font-bold">
+                        ✓
+                      </span>
+                    </div>
+                    <div className="text-xs sm:text-sm">
+                      <p className="font-medium text-foreground">
+                        PDF files only
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        Max 50MB each
+                      </p>
+                    </div>
                   </div>
-                  <div className="text-sm">
-                    <p className="font-medium text-foreground">
-                      PDF files only
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      Max 50MB each
-                    </p>
+                  <div className="flex items-center gap-2">
+                    <div className="w-6 h-6 bg-blue-100 dark:bg-blue-900 rounded flex items-center justify-center flex-shrink-0">
+                      <span className="text-blue-600 dark:text-blue-400 text-xs font-bold">
+                        📝
+                      </span>
+                    </div>
+                    <div className="text-xs sm:text-sm">
+                      <p className="font-medium text-foreground">
+                        Clear headings
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        Better AI responses
+                      </p>
+                    </div>
                   </div>
-                </div>
-                <div className="flex items-center gap-2">
-                  <div className="w-6 h-6 bg-blue-100 dark:bg-blue-900 rounded flex items-center justify-center flex-shrink-0">
-                    <span className="text-blue-600 dark:text-blue-400 text-xs font-bold">
-                      📝
-                    </span>
+                  <div className="flex items-center gap-2">
+                    <div className="w-6 h-6 bg-purple-100 dark:bg-purple-900 rounded flex items-center justify-center flex-shrink-0">
+                      <span className="text-purple-600 dark:text-purple-400 text-xs font-bold">
+                        ⚡
+                      </span>
+                    </div>
+                    <div className="text-xs sm:text-sm">
+                      <p className="font-medium text-foreground">
+                        Fast processing
+                      </p>
+                      <p className="text-xs text-muted-foreground">1-5 minutes</p>
+                    </div>
                   </div>
-                  <div className="text-sm">
-                    <p className="font-medium text-foreground">
-                      Clear headings
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      Better AI responses
-                    </p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2">
-                  <div className="w-6 h-6 bg-purple-100 dark:bg-purple-900 rounded flex items-center justify-center flex-shrink-0">
-                    <span className="text-purple-600 dark:text-purple-400 text-xs font-bold">
-                      ⚡
-                    </span>
-                  </div>
-                  <div className="text-sm">
-                    <p className="font-medium text-foreground">
-                      Fast processing
-                    </p>
-                    <p className="text-xs text-muted-foreground">1-5 minutes</p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2">
-                  <div className="w-6 h-6 bg-orange-100 dark:bg-orange-900 rounded flex items-center justify-center flex-shrink-0">
-                    <span className="text-orange-600 dark:text-orange-400 text-xs font-bold">
-                      🔒
-                    </span>
-                  </div>
-                  <div className="text-sm">
-                    <p className="font-medium text-foreground">
-                      Secure & private
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      Encrypted storage
-                    </p>
+                  <div className="flex items-center gap-2">
+                    <div className="w-6 h-6 bg-orange-100 dark:bg-orange-900 rounded flex items-center justify-center flex-shrink-0">
+                      <span className="text-orange-600 dark:text-orange-400 text-xs font-bold">
+                        🔒
+                      </span>
+                    </div>
+                    <div className="text-xs sm:text-sm">
+                      <p className="font-medium text-foreground">
+                        Secure & private
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        Encrypted storage
+                      </p>
+                    </div>
                   </div>
                 </div>
               </div>

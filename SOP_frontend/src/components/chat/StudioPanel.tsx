@@ -1,21 +1,27 @@
-import { 
-  Headphones, 
-  Video, 
-  Network, 
-  FileBarChart, 
-  CreditCard, 
-  HelpCircle, 
-  BarChart3, 
-  Presentation, 
+import {
+  Headphones,
+  Video,
+  Network,
+  FileBarChart,
+  CreditCard,
+  HelpCircle,
+  BarChart3,
+  Presentation,
   Table2,
   PanelLeftClose,
-  StickyNote
+  StickyNote,
+  Settings2,
+  MoreVertical,
+  PanelRight,
+  PanelLeft
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 interface StudioPanelProps {
   onClose?: () => void;
   className?: string;
+  showStudioPanel: boolean;
+  setShowStudioPanel: (show: boolean) => void;
 }
 
 const studioTools = [
@@ -28,19 +34,71 @@ const studioTools = [
   { id: "infographic", icon: BarChart3, label: "Infographic" },
   { id: "slides", icon: Presentation, label: "Slide deck" },
   { id: "datatable", icon: Table2, label: "Data table" },
+  { id: "notes", icon: StickyNote, label: "Add Note" },
 ];
 
-const StudioPanel = ({ onClose, className = "" }: StudioPanelProps) => {
+const StudioPanel = ({
+  onClose,
+  className = "",
+  showStudioPanel,
+  setShowStudioPanel
+}: StudioPanelProps) => {
+  if (!showStudioPanel) {
+    return (
+      <div className={`hidden md:flex bg-card border-l border-border flex flex-col items-center py-4 w-14 h-full shrink-0 ${className}`}>
+        {/* Toggle Icon */}
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-9 w-9 mb-6 text-muted-foreground hover:text-primary hover:bg-secondary transition-colors"
+          onClick={() => setShowStudioPanel(true)}
+        >
+          <PanelLeft className="w-5 h-5 rotate-180" />
+        </Button>
+
+        <div className="flex-1 flex flex-col items-center gap-4">
+          {studioTools.slice(0, 6).map((tool) => (
+            <Button
+              key={tool.id}
+              variant="ghost"
+              size="icon"
+              className="h-9 w-9 text-muted-foreground hover:text-primary hover:bg-secondary transition-colors"
+              title={tool.label}
+            >
+              <tool.icon className="w-5 h-5" />
+            </Button>
+          ))}
+        </div>
+      </div>
+    );
+  }
   return (
     <div className={`bg-card border-l border-border flex flex-col h-full ${className}`}>
       {/* Header */}
-      <div className="p-4 flex items-center justify-between border-b border-border">
+      <div className="hidden md:block  md:flex p-4 flex items-center justify-between border-b border-border">
         <h2 className="font-semibold text-foreground">Studio</h2>
         {onClose && (
           <Button variant="ghost" size="icon" className="h-8 w-8" onClick={onClose}>
             <PanelLeftClose className="w-4 h-4" />
           </Button>
         )}
+
+        <div className="flex items-center gap-1">
+          <Button variant="ghost" size="icon" className="h-8 w-8">
+            <Settings2 className="w-4 h-4" />
+          </Button>
+          <Button variant="ghost" size="icon" className="h-8 w-8">
+            <MoreVertical className="w-4 h-4" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            className={`h-8 w-8 ${showStudioPanel ? "text-primary bg-secondary" : ""}`}
+            onClick={() => setShowStudioPanel(!showStudioPanel)}
+          >
+            <PanelRight className="w-4 h-4" />
+          </Button>
+        </div>
       </div>
 
       {/* Language Promo */}
@@ -71,7 +129,7 @@ const StudioPanel = ({ onClose, className = "" }: StudioPanelProps) => {
       </div>
 
       {/* Studio Output */}
-      <div className="p-4 border-t border-border">
+      {/* <div className="p-4 border-t border-border">
         <div className="flex flex-col items-center justify-center py-6 text-center">
           <div className="w-10 h-10 rounded-full bg-secondary/50 flex items-center justify-center mb-3">
             <Presentation className="w-5 h-5 text-muted-foreground/50" />
@@ -81,15 +139,15 @@ const StudioPanel = ({ onClose, className = "" }: StudioPanelProps) => {
             After adding sources, click to add Audio Overview, study guides and more!
           </p>
         </div>
-      </div>
+      </div> */}
 
       {/* Add Note Button */}
-      <div className="p-4 pt-0">
+      {/* <div className="p-4 pt-0">
         <Button variant="outline" className="w-full gap-2 justify-center">
           <StickyNote className="w-4 h-4" />
           Add note
         </Button>
-      </div>
+      </div> */}
     </div>
   );
 };

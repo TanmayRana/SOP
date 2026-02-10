@@ -21,7 +21,15 @@ const chatSchema = new Schema({
     messages: [
         {
             role: String,
-            content: String,
+            content: Schema.Types.Mixed,
+            citations: [
+                {
+                    id: String,
+                    documentName: String,
+                    pageNumber: Number,
+                    sectionTitle: String
+                }
+            ],
             timestamp: {
                 type: Date,
                 default: Date.now

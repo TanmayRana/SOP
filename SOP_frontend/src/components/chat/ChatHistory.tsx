@@ -20,13 +20,7 @@ const ChatHistory = ({ chats, activeChatId, onDeleteChat, onNewChat, className =
     const navigate = useNavigate();
 
     return (
-        <div className={`flex flex-col h-full bg-card border-r border-border ${className}`}>
-            <div className="p-4 border-b border-border flex items-center justify-between">
-                <h2 className="font-semibold text-foreground">History</h2>
-                <Button variant="ghost" size="icon" onClick={onNewChat} className="h-8 w-8">
-                    <Plus className="w-4 h-4" />
-                </Button>
-            </div>
+        <div className={`flex flex-col h-full ${className}`}>
 
             <ScrollArea className="flex-1">
                 <div className="p-2 space-y-1">
@@ -34,8 +28,8 @@ const ChatHistory = ({ chats, activeChatId, onDeleteChat, onNewChat, className =
                         <div
                             key={chat.id}
                             className={`group flex items-center justify-between p-2 rounded-lg cursor-pointer transition-colors ${chat.id === activeChatId
-                                    ? "bg-secondary text-secondary-foreground"
-                                    : "hover:bg-secondary/50 text-muted-foreground hover:text-foreground"
+                                ? "bg-secondary text-secondary-foreground"
+                                : "hover:bg-secondary/50 text-muted-foreground hover:text-foreground"
                                 }`}
                             onClick={() => navigate(`/chat/${chat.id}`)}
                         >

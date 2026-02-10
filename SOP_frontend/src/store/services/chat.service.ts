@@ -5,17 +5,31 @@ export interface Citation {
     sectionTitle: string;
 }
 
+export interface ContentBlock {
+    type: "answer" | "explanation" | "steps" | "key_points" | "example" | "code" | "warning" | "limitations" | "follow_up";
+    title?: string;
+    text?: string;
+    list?: string[];
+    steps?: { step: number; text: string }[];
+}
+
+export interface StructuredAnswer {
+    intent: string;
+    blocks: ContentBlock[];
+    confidence: number;
+}
+
 export interface ChatMessage {
     id: string;
     role: "user" | "assistant";
-    content: string;
+    content: string | StructuredAnswer;
     citations?: Citation[];
-    timestamp: Date;
+    timestamp: string;
 }
 
 export interface ChatResponse {
     success: boolean;
-    answer: string;
+    answer: string | StructuredAnswer;
     citations: Citation[];
 }
 

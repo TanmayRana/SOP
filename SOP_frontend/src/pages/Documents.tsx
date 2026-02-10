@@ -59,7 +59,7 @@ const Documents = () => {
   const { toast } = useToast();
   const { chats, allDocuments } = useAppSelector((state) => state.chat);
   const [searchQuery, setSearchQuery] = useState("");
-  const chatId = uuid();
+  const [chatId] = useState(() => uuid());
 
   const [renameDialogOpen, setRenameDialogOpen] = useState(false);
   const [chatToRename, setChatToRename] = useState<{ id: string, title: string } | null>(null);
@@ -161,14 +161,14 @@ const Documents = () => {
   };
 
   return (
-    <main className="px-4 sm:px-6 lg:px-8 py-8">
+    <main className="px-2 sm:px-4 lg:px-6 py-2">
       {/* Back Button */}
-      <Link to="/dashboard">
+      {/* <Link to="/dashboard">
         <Button variant="ghost" size="sm" className="mb-6">
           <ArrowLeft className="w-4 h-4 mr-2" />
           Back to Dashboard
         </Button>
-      </Link>
+      </Link> */}
 
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-8">

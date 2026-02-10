@@ -5,6 +5,8 @@ import Chat from "../models/chat.models.js";
 import cloudinary from "../utils/cloudinary.js";
 import { HuggingFaceTransformersEmbeddings } from "@langchain/community/embeddings/huggingface_transformers";
 import { ChatOpenAI } from "@langchain/openai";
+import mongoose from "mongoose";
+import { runChatAgent } from "../services/ChatAgent.js";
 
 
 export const createChat = asyncHandler(async (req, res) => {
@@ -13,11 +15,19 @@ export const createChat = asyncHandler(async (req, res) => {
     if (!chatId) {
         return res.status(400).json({ message: "ChatId is required" });
     }
-    const chat = await Chat.create({
-        _id: chatId,
-        userId,
-        title: title || "New Chat"
-    });
+    const chat = await Chat.findOneAndUpdate(
+        { _id: chatId, userId },
+        {
+            $setOnInsert: {
+                _id: chatId,
+                userId,
+                title: title || "New Chat",
+                messages: [],
+                pdfIds: []
+            }
+        },
+        { upsert: true, new: true, setDefaultsOnInsert: true }
+    );
     res.status(200).json(chat);
 });
 
@@ -105,18 +115,11 @@ export const chatWithPdf = asyncHandler(async (req, res) => {
         },
         {
             $match: {
-                "metadata.userId": userId,
+                "metadata.userId": new mongoose.Types.ObjectId(userId),
                 "metadata.chatId": chatId,
             },
         },
     ]);
-
-    if (results.length === 0) {
-        return res.status(200).json({
-            answer: "I couldn't find any relevant information in the uploaded documents to answer your question.",
-            citations: [],
-        });
-    }
 
     const context = results.map((doc) => doc.pageContent).join("\n\n");
 
@@ -127,46 +130,49 @@ export const chatWithPdf = asyncHandler(async (req, res) => {
         sectionTitle: "Context from PDF",
     }));
 
-    const llm = new ChatOpenAI({
-        model: "llama-3.3-70b-versatile",
-        temperature: 0,
-        apiKey: process.env.GROQ_API_KEY || process.env.OPENAI_API_KEY,
-        configuration: {
-            baseURL: "https://api.groq.com/openai/v1",
-        },
-    });
+    //     const llm = new ChatOpenAI({
+    //         model: "llama-3.3-70b-versatile",
+    //         temperature: 0,
+    //         apiKey: process.env.GROQ_API_KEY || process.env.OPENAI_API_KEY,
+    //         configuration: {
+    //             baseURL: "https://api.groq.com/openai/v1",
+    //         },
+    //     });
 
-    const prompt = `
-    You are an expert SOP assistant. Use the following context to answer the user's question accurately.
-    If the context doesn't contain the answer, say "I don't know based on the provided documents".
-    
-    Context:
-    ${context}
-    
-    Question:
-    ${question}
-    
-    Answer:
-  `;
+    //     const prompt = `
+    //     Use the following context to answer the question. If you don't know the answer, just say that you don't know.
 
-    const result = await llm.invoke(prompt);
+    //     Context:
+    //     ${context}
+
+    //     Question:
+    //     ${question}
+
+    //     Answer:
+    //   `;
+
+    //     const result = await llm.invoke(prompt);
+
+    const result = await runChatAgent({ question, context });
 
     // Persist messages to Chat history
     await Chat.findOneAndUpdate(
         { _id: chatId, userId },
         {
             $push: {
-                messages: [
-                    { role: "user", content: question },
-                    { role: "assistant", content: result.content }
-                ]
+                messages: {
+                    $each: [
+                        { role: "user", content: question },
+                        { role: "assistant", content: result, citations }
+                    ]
+                }
             }
         }
     );
 
     res.status(200).json({
         success: true,
-        answer: result.content,
+        answer: result,
         citations: citations,
     });
 });

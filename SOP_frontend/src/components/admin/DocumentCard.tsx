@@ -70,12 +70,16 @@ const DocumentCard = ({ document, onDelete, onReprocess }: DocumentCardProps) =>
                   <StatusIcon className="w-2.5 h-2.5 sm:w-3 sm:h-3" />
                   {status.label}
                 </span>
-                {document.pages && (
-                  <span className="text-[10px] sm:text-xs text-muted-foreground whitespace-nowrap">{document.pages} pages</span>
-                )}
-                {document.size && (
-                  <span className="text-[10px] sm:text-xs text-muted-foreground whitespace-nowrap">{document.size}</span>
-                )}
+                <div className="text-xs text-muted-foreground flex items-center gap-1.5">
+
+                  {document.pages && (
+                    <span className="text-[10px] sm:text-xs text-muted-foreground whitespace-nowrap">{document.pages} pages</span>
+                  )}
+                  <span>•</span>
+                  {document.size && (
+                    <span className="text-[10px] sm:text-xs text-muted-foreground whitespace-nowrap">{document.size}</span>
+                  )}
+                </div>
               </div>
             </div>
           </div>
@@ -95,14 +99,14 @@ const DocumentCard = ({ document, onDelete, onReprocess }: DocumentCardProps) =>
                   <RefreshCw className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                 </Button>
               )}
-              <Button
+              {/* <Button
                 variant="ghost"
                 size="sm"
                 onClick={() => onDelete?.(document.id)}
                 className="h-7 w-7 sm:h-8 sm:w-8 p-0 text-muted-foreground hover:text-destructive"
               >
                 <Trash2 className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-              </Button>
+              </Button> */}
             </div>
           </div>
         </div>
