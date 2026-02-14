@@ -1,6 +1,6 @@
 import { inngest } from './client.js';
-import { helloWorld, processPdf } from './function.js';
+import { helloWorld, processPdf, generateStudioContentJob } from './function.js';
 
-export const functions = [helloWorld, processPdf];
+export const functions = [helloWorld, processPdf, generateStudioContentJob];
 
 export { inngest };

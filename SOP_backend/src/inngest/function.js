@@ -10,6 +10,9 @@ import path from "path";
 import os from "os";
 import { finished } from "stream/promises";
 import { Readable } from "stream";
+import Studio from "../models/studio.models.js";
+import { runStudioAgent } from "../services/StudioAgent.js";
+import mongoose from "mongoose";
 
 export const helloWorld = inngest.createFunction(
   { id: 'hello-world' },
@@ -112,4 +115,42 @@ export const processPdf = inngest.createFunction(
       }
     }
   },
+);
+
+export const generateStudioContentJob = inngest.createFunction(
+  { id: "generate-studio-content" },
+  { event: "studio/generate.requested" },
+  async ({ event }) => {
+    await connectDB();
+
+    const { chatId, userId, toolId } = event.data;
+
+    console.log(`Background generating studio content for [${toolId}] in chat ${chatId}`);
+
+    // 1. Gather context from all PDFs in this chat
+    const results = await PdfVector.find({
+      "metadata.chatId": chatId,
+      "metadata.userId": new mongoose.Types.ObjectId(userId)
+    }).limit(20);
+
+    const context = results.map(doc => doc.pageContent).join("\n\n");
+
+    if (!context) {
+      console.warn(`No context found for chat ${chatId}`);
+      return { success: false, message: "No context found" };
+    }
+
+    // 2. Call AI Agent
+    const generatedContent = await runStudioAgent(toolId, context);
+
+    // 3. Save to database
+    await Studio.findOneAndUpdate(
+      { chatId, userId, toolId },
+      { content: generatedContent },
+      { upsert: true, new: true }
+    );
+
+    console.log(`Successfully generated and saved [${toolId}] content for chat ${chatId}`);
+    return { success: true };
+  }
 );

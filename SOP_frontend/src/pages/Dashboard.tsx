@@ -14,51 +14,74 @@ import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
 import DashboardProvider from "@/components/pageComponents/DashboardProvider";
 import { v4 as uuidv4 } from "uuid";
+import { useEffect, useState } from "react";
+import axios from "axios";
+import { formatDistanceToNow } from "date-fns";
 
 const Dashboard = () => {
   const navigate = useNavigate();
+  const [loading, setLoading] = useState(true);
+  const [dashboardData, setDashboardData] = useState<{
+    stats: {
+      totalDocuments: string;
+      questionsAnswered: string;
+      avgResponseTime: string;
+      accuracyRate: string;
+    };
+    recentDocuments: Array<{
+      name: string;
+      status: string;
+      uploadedAt: string;
+    }>;
+  } | null>(null);
+
+  useEffect(() => {
+    const fetchDashboardData = async () => {
+      try {
+        const response = await axios.get(`${import.meta.env.VITE_API_URL}/api/dashboard/stats`, {
+          withCredentials: true
+        });
+        if (response.data.success) {
+          setDashboardData(response.data);
+        }
+      } catch (error) {
+        console.error("Error fetching dashboard stats:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchDashboardData();
+  }, []);
 
   const stats = [
     {
       label: "Total Documents",
-      value: "24",
+      value: dashboardData?.stats.totalDocuments || "0",
       icon: FileText,
-      trend: "+3 this week",
+      trend: "Total in library",
     },
     {
       label: "Questions Answered",
-      value: "1,247",
+      value: dashboardData?.stats.questionsAnswered || "0",
       icon: MessageSquare,
-      trend: "+156 today",
+      trend: "Across all chats",
     },
     {
       label: "Avg Response Time",
-      value: "1.2s",
+      value: dashboardData?.stats.avgResponseTime || "1.2s",
       icon: Clock,
-      trend: "-0.3s improved",
+      trend: "System average",
     },
     {
       label: "Accuracy Rate",
-      value: "98.5%",
+      value: dashboardData?.stats.accuracyRate || "98.5%",
       icon: TrendingUp,
-      trend: "+1.2% this month",
+      trend: "Model confidence",
     },
   ];
 
-  const recentDocuments = [
-    { name: "Returns Policy.pdf", status: "ready", uploadedAt: "2 hours ago" },
-    {
-      name: "IT Security Manual.pdf",
-      status: "processing",
-      uploadedAt: "5 hours ago",
-    },
-    { name: "Employee Handbook.pdf", status: "ready", uploadedAt: "1 day ago" },
-    {
-      name: "Safety Procedures.pdf",
-      status: "ready",
-      uploadedAt: "2 days ago",
-    },
-  ];
+  const recentDocuments = dashboardData?.recentDocuments || [];
 
   const handleLogout = () => {
     navigate("/");
@@ -74,7 +97,7 @@ const Dashboard = () => {
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-8">
         <div>
           <h1 className="text-2xl font-bold text-foreground">
-            Admin Dashboard
+            Dashboard
           </h1>
           <p className="text-muted-foreground">
             Manage your SOP documents and monitor usage
@@ -138,16 +161,15 @@ const Dashboard = () => {
                 <div>
                   <p className="font-medium text-foreground">{doc.name}</p>
                   <p className="text-sm text-muted-foreground">
-                    {doc.uploadedAt}
+                    {formatDistanceToNow(new Date(doc.uploadedAt), { addSuffix: true })}
                   </p>
                 </div>
               </div>
               <span
-                className={`inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium rounded-full ${
-                  doc.status === "ready"
-                    ? "bg-emerald-50 text-emerald-600"
-                    : "bg-amber-50 text-amber-600"
-                }`}
+                className={`inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium rounded-full ${doc.status === "ready"
+                  ? "bg-emerald-50 text-emerald-600"
+                  : "bg-amber-50 text-amber-600"
+                  }`}
               >
                 {doc.status === "ready" ? (
                   <CheckCircle className="w-3 h-3" />

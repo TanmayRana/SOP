@@ -4,6 +4,8 @@ import dotenv from 'dotenv';
 import authRoutes from './routes/auth.routes.js';
 import profileRoutes from './routes/profile.routes.js';
 import chatRoutes from './routes/chat.routes.js';
+import dashboardRoutes from './routes/dashboard.routes.js';
+import studioRoutes from './routes/studio.routes.js';
 import errorHandler from './middleware/error.middleware.js';
 import connectDB from './config/database.js';
 import morgan from 'morgan';
@@ -57,6 +59,8 @@ app.use(
 app.use('/api/auth', authRoutes);
 app.use('/api/profile', profileRoutes);
 app.use('/api/chat', chatRoutes);
+app.use('/api/dashboard', dashboardRoutes);
+app.use('/api/studio', studioRoutes);
 
 app.get('/health', (req, res) => {
   res.status(200).json({
