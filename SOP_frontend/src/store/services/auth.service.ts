@@ -101,6 +101,12 @@ class AuthService {
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
+
+        // For authentication errors, provide more specific error messages
+        if (response.status === 401) {
+          throw new Error("Access token required");
+        }
+
         throw new Error(
           errorData.message || `HTTP error! status: ${response.status}`,
         );

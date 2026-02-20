@@ -1,4 +1,3 @@
-
 import { useState, useRef, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import {
@@ -14,10 +13,13 @@ import {
   MessageSquare,
   History,
   X,
-  Plus
+  Plus,
 } from "lucide-react";
 import ChatMessage from "@/components/chat/ChatMessage";
-import { type ChatMessage as Message, type Citation } from "@/store/services/chat.service";
+import {
+  type ChatMessage as Message,
+  type Citation,
+} from "@/store/services/chat.service";
 import SourcesPanel from "@/components/chat/SourcesPanel";
 import StudioPanel from "@/components/chat/StudioPanel";
 import ChatHistory from "@/components/chat/ChatHistory";
@@ -43,7 +45,7 @@ import {
   fetchChatPdfs,
   fetchChats,
   createNewChat,
-  deleteChatThunk
+  deleteChatThunk,
 } from "@/store/slices/chat.slice";
 import axios from "axios";
 
@@ -54,7 +56,8 @@ const Chat = () => {
   const { toast } = useToast();
   const dispatch = useAppDispatch();
   const { chatId } = useParams();
-  const { messages, sources, chats, isLoading, isUploading, activeChatId } = useAppSelector((state) => state.chat);
+  const { messages, sources, chats, isLoading, isUploading, activeChatId } =
+    useAppSelector((state) => state.chat);
 
   const [input, setInput] = useState("");
   const [selectedCitation, setSelectedCitation] = useState<Citation | null>(
@@ -67,14 +70,11 @@ const Chat = () => {
     "sources" | "studio" | "history" | null
   >(null);
 
-
-
   // console.log("showhistory", showHistoryPanel);
   // console.log("showstudio", showStudioPanel);
   // console.log("showsources", showSourcesPanel);
 
   console.log("showmobilemenu=", showMobileMenu);
-
 
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -95,10 +95,12 @@ const Chat = () => {
 
           // Wait for chats to load before checking existence to reduce race conditions
           // but we still try to create if it's not found, as the backend is now idempotent
-          const chatExists = chats.some(c => c.id === chatId);
+          const chatExists = chats.some((c) => c.id === chatId);
           if (!chatExists) {
             try {
-              await dispatch(createNewChat({ chatId, title: "New Chat" })).unwrap();
+              await dispatch(
+                createNewChat({ chatId, title: "New Chat" }),
+              ).unwrap();
             } catch (e) {
               // Duplicate key errors are now handled by backend (returns 200 with existing chat)
               // Only log real failures
@@ -120,7 +122,7 @@ const Chat = () => {
   // Auto-resize textarea
   useEffect(() => {
     if (inputRef.current) {
-      inputRef.current.style.height = 'auto';
+      inputRef.current.style.height = "auto";
       inputRef.current.style.height = `${Math.min(inputRef.current.scrollHeight, 120)}px`;
     }
   }, [input]);
@@ -145,15 +147,19 @@ const Chat = () => {
     setInput("");
 
     // Add user message to state
-    dispatch(addMessage({
-      id: Date.now().toString(),
-      role: "user",
-      content,
-      timestamp: new Date().toISOString(),
-    }));
+    dispatch(
+      addMessage({
+        id: Date.now().toString(),
+        role: "user",
+        content,
+        timestamp: new Date().toISOString(),
+      }),
+    );
 
     try {
-      await dispatch(sendMessage({ chatId: activeChatId, question: content })).unwrap();
+      await dispatch(
+        sendMessage({ chatId: activeChatId, question: content }),
+      ).unwrap();
     } catch (error: any) {
       toast({
         title: "Error",
@@ -196,7 +202,7 @@ const Chat = () => {
       toast({
         title: "Error",
         description: error || "Failed to delete chat",
-        variant: "destructive"
+        variant: "destructive",
       });
     }
   };
@@ -222,7 +228,6 @@ const Chat = () => {
       setTimeout(() => {
         dispatch(fetchChatPdfs(activeChatId));
       }, 5000);
-
     } catch (error: any) {
       toast({
         title: "Upload failed",
@@ -260,8 +265,12 @@ const Chat = () => {
         </div>
 
         <div className="flex flex-col items-center">
-          <span className="text-[10px] uppercase tracking-wider font-bold text-muted-foreground/60 leading-none mb-0.5">SOP Genius</span>
-          <h1 className="font-bold text-foreground text-sm tracking-tight">Chat Assistant</h1>
+          <span className="text-[10px] uppercase tracking-wider font-bold text-muted-foreground/60 leading-none mb-0.5">
+            SOP Genius
+          </span>
+          <h1 className="font-bold text-foreground text-sm tracking-tight">
+            Chat Assistant
+          </h1>
         </div>
 
         <Button
@@ -277,8 +286,6 @@ const Chat = () => {
       </div>
 
       <div className="flex-1 flex overflow-hidden relative">
-
-
         {/* Sources Panel - Desktop */}
         <div
           className={`hidden md:flex flex-shrink-0 transition-all duration-300 ${showSourcesPanel ? "w-72 lg:w-80" : "w-14"}`}
@@ -378,23 +385,23 @@ const Chat = () => {
           </div>
 
           {/* Messages Area - Responsive Padding */}
-          <div className="flex-1 overflow-y-auto p-3 sm:p-4 md:p-6">
+          <div className="flex-1 overflow-y-auto p-3 sm:p-4 md:p-6 bg-gradient-to-b from-background to-muted/20">
             {messages.length === 0 ? (
-              <div className="h-full flex flex-col items-center justify-center text-center px-4">
-                <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-secondary/50 flex items-center justify-center mb-3 sm:mb-4">
-                  <Upload className="w-5 h-5 sm:w-6 sm:h-6 text-primary" />
+              <div className="h-full flex flex-col items-center justify-center text-center px-4 animate-fade-in">
+                <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-gradient-to-br from-primary/10 to-primary/20 flex items-center justify-center mb-4 sm:mb-6 shadow-lg border border-primary/10">
+                  <Upload className="w-6 h-6 sm:w-8 sm:h-8 text-primary" />
                 </div>
-                <h2 className="text-lg sm:text-xl font-semibold text-foreground mb-2">
+                <h2 className="text-xl sm:text-2xl font-semibold text-foreground mb-3">
                   Start a conversation
                 </h2>
-                <p className="text-sm sm:text-base text-muted-foreground mb-4 max-w-md">
-                  Upload documents or ask questions about your SOPs and
-                  policies.
+                <p className="text-sm sm:text-base text-muted-foreground mb-6 max-w-md leading-relaxed">
+                  Upload documents or ask questions about your SOPs and policies
+                  to get started.
                 </p>
                 <Button
                   onClick={handleAddSource}
                   variant="outline"
-                  className="mt-2 sm:mt-4"
+                  className="mt-2 sm:mt-4 hover:bg-primary/5 hover:border-primary/30 transition-all duration-200 shadow-sm"
                   size="sm"
                 >
                   <Upload className="w-4 h-4 mr-2" />
@@ -402,27 +409,33 @@ const Chat = () => {
                 </Button>
               </div>
             ) : (
-              <div className="max-w-3xl mx-auto space-y-3 sm:space-y-4">
-                {messages.map((message) => (
-                  <ChatMessage
+              <div className="max-w-4xl mx-auto space-y-4 sm:space-y-6">
+                {messages.map((message, index) => (
+                  <div
                     key={message.id}
-                    message={message}
-                    onCitationClick={handleCitationClick}
-                  />
+                    className="animate-fade-in"
+                    style={{ animationDelay: `${index * 50}ms` }}
+                  >
+                    <ChatMessage
+                      message={message}
+                      onCitationClick={handleCitationClick}
+                    />
+                  </div>
                 ))}
                 {isLoading && (
                   <div className="flex justify-start animate-fade-in">
-                    <div className="chat-bubble-assistant px-3 sm:px-4 py-2 sm:py-3">
-                      <div className="flex items-center gap-2">
+                    <div className="chat-bubble-assistant px-4 py-3 shadow-sm border border-border/50">
+                      <div className="flex items-center gap-3">
                         <div className="flex gap-1">
                           <span
-                            className="w-2 h-2 bg-muted-foreground rounded-full animate-bounce"
-                            style={{ animationDelay: "0ms" }}
-                          />
-                          <span
-                            className="w-2 h-2 bg-muted-foreground rounded-full animate-bounce"
+                            className="w-2 h-2 bg-primary rounded-full animate-bounce"
                             style={{ animationDelay: "150ms" }}
-                          />
+                          ></span>
+                          <span
+                            className="w-2 h-2 bg-primary rounded-full animate-bounce"
+                            style={{ animationDelay: "150ms" }}
+                          ></span>
+
                           <span
                             className="w-2 h-2 bg-muted-foreground rounded-full animate-bounce"
                             style={{ animationDelay: "300ms" }}
@@ -542,7 +555,9 @@ const Chat = () => {
                 <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
                   <History className="w-4 h-4 text-primary" />
                 </div>
-                <DialogTitle className="font-semibold">Chat History</DialogTitle>
+                <DialogTitle className="font-semibold">
+                  Chat History
+                </DialogTitle>
               </div>
 
               <div className="h-8 w-[1px] bg-border/60 mx-1" />
@@ -585,7 +600,8 @@ const Chat = () => {
                 Upload Knowledge Base
               </DialogTitle>
               <DialogDescription className="text-base text-muted-foreground mt-2">
-                Add PDF documents to train your AI assistant. Files are encrypted and processed securely.
+                Add PDF documents to train your AI assistant. Files are
+                encrypted and processed securely.
               </DialogDescription>
             </DialogHeader>
 
@@ -677,7 +693,9 @@ const Chat = () => {
                       <p className="font-medium text-foreground">
                         Fast processing
                       </p>
-                      <p className="text-xs text-muted-foreground">1-5 minutes</p>
+                      <p className="text-xs text-muted-foreground">
+                        1-5 minutes
+                      </p>
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
